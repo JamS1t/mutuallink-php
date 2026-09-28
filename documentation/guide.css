@@ -1,0 +1,61 @@
+/* MutualLink System Guide — builds on mutuallink.css tokens */
+html { scroll-behavior: smooth; scroll-padding-top: 84px; }
+body.guide { background: var(--ml-bg); }
+
+.guide-top {
+  position: sticky; top: 0; z-index: 1030;
+  display: flex; align-items: center; gap: 1rem;
+  background: #fff; border-bottom: 1px solid var(--ml-line);
+  padding: .6rem 1.25rem;
+}
+.guide-brand { display: flex; align-items: center; gap: .6rem; color: var(--ml-ink); font-weight: 700; }
+.guide-brand:hover { color: var(--ml-ink); text-decoration: none; }
+.guide-brand small { display: block; font-weight: 400; font-size: .72rem; color: var(--ml-muted); margin-top: -2px; }
+
+.guide-wrap { display: grid; grid-template-columns: 250px minmax(0, 1fr); gap: 2rem; max-width: 1280px; margin: 0 auto; padding: 1.5rem 1.25rem 3rem; }
+
+.guide-toc { position: sticky; top: 84px; align-self: start; max-height: calc(100vh - 100px); overflow-y: auto; }
+.guide-toc .toc-title { font-size: .72rem; text-transform: uppercase; letter-spacing: .08em; color: var(--ml-muted); margin-bottom: .4rem; }
+.guide-toc .toc-group { font-size: .7rem; text-transform: uppercase; letter-spacing: .06em; color: var(--ml-muted); margin: .9rem 0 .2rem .75rem; }
+.guide-toc .nav-link { padding: .3rem .75rem; color: var(--ml-ink); border-left: 2px solid transparent; font-size: .9rem; }
+.guide-toc .nav-link:hover { color: var(--ml-green); }
+.guide-toc .nav-link.active { color: var(--ml-green); border-left-color: var(--ml-green); font-weight: 600; background: var(--ml-green-soft); }
+
+.guide-main { min-width: 0; }
+.guide-main section { margin-bottom: 2.5rem; }
+.guide-main h2 { font-size: 1.4rem; font-weight: 700; margin: 0 0 .9rem; padding-top: .25rem; }
+.guide-main h3 { font-size: 1.05rem; font-weight: 700; margin: 1.6rem 0 .6rem; display: flex; align-items: center; gap: .5rem; }
+.guide-main p, .guide-main li { line-height: 1.65; }
+.part-title {
+  font-size: 1.05rem !important; text-transform: uppercase; letter-spacing: .08em;
+  color: var(--ml-green); border-bottom: 2px solid var(--ml-green); padding-bottom: .4rem; margin: 2.5rem 0 1.5rem !important;
+}
+.roles { font-size: .8rem; font-weight: 600; color: var(--ml-green); background: var(--ml-green-soft); border-radius: 999px; padding: .15rem .6rem; vertical-align: middle; margin-left: .4rem; }
+.step {
+  display: inline-flex; align-items: center; justify-content: center; flex: none;
+  width: 26px; height: 26px; border-radius: 50%; background: var(--ml-green); color: #fff; font-size: .8rem; font-weight: 700;
+}
+
+.guide-hero { display: flex; align-items: center; gap: 1.25rem; margin-bottom: 1.25rem; }
+.guide-hero h1 { font-size: 1.9rem; font-weight: 800; margin: 0; }
+
+.callout { border-radius: .5rem; background: #fff; }
+
+.shot { margin: 1rem 0 1.5rem; }
+.shot a { display: block; border: 1px solid var(--ml-line); border-radius: .6rem; overflow: hidden; background: #fff; box-shadow: 0 4px 14px rgba(16, 24, 40, .06); }
+.shot a:hover { box-shadow: 0 6px 20px rgba(31, 107, 129, .18); }
+.shot img { display: block; width: 100%; height: auto; }
+.shot figcaption { font-size: .85rem; color: var(--ml-muted); margin-top: .5rem; text-align: center; }
+.shot-narrow { max-width: 620px; margin-left: auto; margin-right: auto; }
+
+.guide-foot { color: var(--ml-muted); font-size: .85rem; border-top: 1px solid var(--ml-line); padding-top: 1rem; text-align: center; }
+
+@media (max-width: 991.98px) {
+  .guide-wrap { grid-template-columns: 1fr; }
+  .guide-toc { position: static; max-height: none; background: #fff; border: 1px solid var(--ml-line); border-radius: .6rem; padding: .75rem; }
+}
+@media print {
+  .guide-top, .guide-toc { display: none; }
+  .guide-wrap { display: block; }
+  .shot { break-inside: avoid; }
+}

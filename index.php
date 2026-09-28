@@ -118,7 +118,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       </form>
     </div>
   </div>
-  <p class="login-foot">Authorized cooperative personnel only. Activity is recorded.</p>
+  <p class="login-foot">Authorized cooperative personnel only. Activity is recorded.<br>
+    <a href="documentation/" class="text-white"><i class="fas fa-book mr-1"></i>System guide</a></p>
 </main>
 
 <?php
