@@ -98,7 +98,7 @@ $pdo = db();
            FROM loans l JOIN loan_products p ON p.product_id = l.product_id
           GROUP BY p.product_name, l.status ORDER BY p.product_name, FIELD(l.status, 'pending','approved','released','paid','rejected','cancelled')"
     )->fetchAll();
-    $active = $pdo->query(
+    $releasedLoans = $pdo->query(
         "SELECT l.loan_id, CONCAT(m.last_name, ', ', m.first_name) AS member_name, m.member_no, p.product_name, l.principal, l.date_released,
                 l.term_months, l.outstanding_balance,
                 (SELECT COUNT(*) FROM amortization_schedule s WHERE s.loan_id = l.loan_id AND s.status = 'paid') AS paid_inst,
@@ -127,13 +127,13 @@ $pdo = db();
       <table class="table table-sm table-hover js-datatable" data-export="true" data-title="FFMPC Active Loans <?= e(date('Y-m-d')) ?>" data-order='[[1,"asc"]]'>
         <thead><tr><th>Loan</th><th>Member</th><th>Product</th><th>Released</th><th class="num">Principal</th><th>Paid inst.</th><th>Next due</th><th class="num">Outstanding</th></tr></thead>
         <tbody>
-        <?php foreach ($active as $a): ?>
+        <?php foreach ($releasedLoans as $a): ?>
           <tr><td>#<?= (int) $a['loan_id'] ?></td><td><?= e($a['member_name']) ?> <span class="small text-muted"><?= e($a['member_no']) ?></span></td><td><?= e($a['product_name']) ?></td>
             <td><?= e(fmt_date($a['date_released'])) ?></td><td class="num"><?= e(money($a['principal'])) ?></td><td><?= (int) $a['paid_inst'] ?> / <?= (int) $a['term_months'] ?></td>
             <td class="<?= $a['next_due'] && $a['next_due'] < date('Y-m-d') ? 'text-danger font-weight-bold' : '' ?>"><?= e(fmt_date($a['next_due'])) ?></td><td class="num"><?= e(money($a['outstanding_balance'])) ?></td></tr>
         <?php endforeach; ?>
         </tbody>
-        <tfoot><tr class="font-weight-bold"><td colspan="7">Total portfolio</td><td class="num"><?= e(money(array_sum(array_column($active, 'outstanding_balance')))) ?></td></tr></tfoot>
+        <tfoot><tr class="font-weight-bold"><td colspan="7">Total portfolio</td><td class="num"><?= e(money(array_sum(array_column($releasedLoans, 'outstanding_balance')))) ?></td></tr></tfoot>
       </table>
     </div>
   </div>

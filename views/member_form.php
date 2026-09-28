@@ -177,7 +177,7 @@ $field = fn (string $k) => e(old($k, $m[$k] ?? ''));
           <div class="form-row">
             <div class="form-group col-md-6">
               <label for="tin">TIN <span class="text-danger">*</span></label>
-              <input type="text" class="form-control" id="tin" name="tin" maxlength="20" placeholder="123-456-789" value="<?= $field('tin') ?>">
+              <input type="text" class="form-control" id="tin" name="tin" required maxlength="20" placeholder="123-456-789" value="<?= $field('tin') ?>">
             </div>
             <div class="form-group col-md-6">
               <label for="sss">SSS number</label>

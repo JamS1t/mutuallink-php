@@ -35,13 +35,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 "SELECT t.txn_id, t.txn_type, t.amount, t.or_no
                    FROM savings_transactions t
                   WHERE t.txn_id = :t AND t.savings_id = :s AND t.txn_type <> 'reversal'
+                    AND t.or_no IS NOT NULL -- entries without an OR are system postings (e.g. stockshare at loan release)
                     AND NOT EXISTS (SELECT 1 FROM savings_transactions r WHERE r.reverses_txn_id = t.txn_id)
                   FOR UPDATE"
             );
             $stmt->execute([':t' => $txnId, ':s' => $id]);
             $orig = $stmt->fetch();
             if (!$orig) {
-                throw new DomainException('That entry cannot be reversed (not found or already reversed).');
+                throw new DomainException('That entry cannot be reversed: it was already reversed, or it is a system entry such as the stockshare from a loan release.');
             }
             $direction = $orig['txn_type'] === 'deposit' ? -1 : 1;
             $res = savings_entry($id, 'reversal', (float) $orig['amount'], $direction, date('Y-m-d'),
@@ -129,7 +130,7 @@ $headerActions = implode(' ', $buttons);
                   <td class="num font-weight-bold"><?= e(money($t['running_balance'])) ?></td>
                   <td class="small"><?= e($t['posted_by']) ?></td>
                   <td class="text-right no-print">
-                    <?php if (can('savings_txn', 'delete') && $t['txn_type'] !== 'reversal' && !$t['reversed'] && $acct['status'] === 'active'): ?>
+                    <?php if (can('savings_txn', 'delete') && $t['txn_type'] !== 'reversal' && $t['or_no'] && !$t['reversed'] && $acct['status'] === 'active'): ?>
                       <form method="post" action="" class="d-inline ml-form" data-confirm-reason
                             data-confirm="<?= e('Reverse this ' . $t['txn_type'] . ' of ' . money($t['amount']) . '? A reversing entry will be added; the original stays on record.') ?>"
                             data-confirm-button="Reverse entry">

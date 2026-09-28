@@ -56,7 +56,8 @@
     try {
       JSON.parse(flashEl.getAttribute('data-messages') || '[]').forEach(function (m) {
         var type = { success: 'success', error: 'error', warning: 'warning', info: 'info' }[m.type] || 'info';
-        toastr[type](m.message);
+        // Validation errors stay until closed, so a list of problems can be read in full.
+        toastr[type](m.message, '', type === 'error' ? { timeOut: 0, extendedTimeOut: 0 } : {});
       });
     } catch (e) { /* ignore malformed flash data */ }
   }

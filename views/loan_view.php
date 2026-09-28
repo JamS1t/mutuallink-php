@@ -95,10 +95,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         throw $e; // let the router show the 403 page
     } catch (DomainException $e) {
         flash('error', $e->getMessage());
+        // A failed release re-renders the form so the typed values (old()) are kept.
+        $keepReleaseForm = $action === 'release';
     } catch (Throwable $e) {
         db_failure($e);
     }
-    redirect($back);
+    if (empty($keepReleaseForm)) {
+        redirect($back);
+    }
 }
 
 $stmt = db()->prepare('SELECT * FROM amortization_schedule WHERE loan_id = :id ORDER BY installment_no');
@@ -317,19 +321,19 @@ $pos = array_search($loan['status'], $order, true);
             <div class="form-group">
               <label for="release_date">Release date</label>
               <input type="date" id="release_date" name="release_date" class="form-control" required
-                     min="<?= e($loan['date_approved']) ?>" max="<?= e(date('Y-m-d')) ?>" value="<?= e(date('Y-m-d')) ?>">
+                     min="<?= e($loan['date_approved']) ?>" max="<?= e(date('Y-m-d')) ?>" value="<?= e(old('release_date', date('Y-m-d'))) ?>">
             </div>
             <div class="form-row">
               <div class="form-group col-6">
                 <label for="release_mode">Released in</label>
                 <select id="release_mode" name="release_mode" class="custom-select">
                   <option value="cash">Cash</option>
-                  <option value="check">Check</option>
+                  <option value="check" <?= old('release_mode') === 'check' ? 'selected' : '' ?>>Check</option>
                 </select>
               </div>
               <div class="form-group col-6">
                 <label for="check_no">Check no. <small class="text-muted">(if check)</small></label>
-                <input type="text" id="check_no" name="check_no" class="form-control" maxlength="30">
+                <input type="text" id="check_no" name="check_no" class="form-control" maxlength="30" value="<?= e(old('check_no')) ?>">
               </div>
             </div>
             <?php if ($prevLoans): ?>
@@ -338,7 +342,7 @@ $pos = array_search($loan['status'], $order, true);
                 <select id="prev_loan_id" name="prev_loan_id" class="custom-select">
                   <option value="">None</option>
                   <?php foreach ($prevLoans as $pl): ?>
-                    <option value="<?= (int) $pl['loan_id'] ?>">Loan #<?= (int) $pl['loan_id'] ?> — <?= e(money($pl['outstanding_balance'])) ?> outstanding</option>
+                    <option value="<?= (int) $pl['loan_id'] ?>" <?= old('prev_loan_id') === (string) $pl['loan_id'] ? 'selected' : '' ?>>Loan #<?= (int) $pl['loan_id'] ?> — <?= e(money($pl['outstanding_balance'])) ?> outstanding</option>
                   <?php endforeach; ?>
                 </select>
                 <small class="form-text text-muted">Its remaining principal is deducted from this release and the old loan is closed.</small>
