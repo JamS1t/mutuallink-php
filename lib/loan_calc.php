@@ -65,7 +65,7 @@ function build_schedule(float $principal, int $months, float $ratePct, string $r
  * Charges owed once the loan term has been surpassed (FFMPC: "Past due 3% + Penalty 4% = 7%").
  * For every month or part of a month after maturity, the unpaid principal is charged
  * interest (3%) and penalty (4%). Amounts already collected are subtracted.
- * ponytail: charged on the balance as of today; if principal is paid down mid-way the
+ * Note: charged on the balance as of today; if principal is paid down mid-way the
  * earlier months are recomputed on the lower balance (never below what was collected).
  * Switch to month-by-month accrual rows if FFMPC needs exact historical balances.
  *

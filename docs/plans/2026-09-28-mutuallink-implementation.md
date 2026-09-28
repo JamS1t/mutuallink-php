@@ -1,6 +1,6 @@
 # MutualLink Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans (chosen: Native, autonomous). Steps use checkbox (`- [ ]`) syntax.
+> Build plan for the three RAD versions. Steps use checkbox (`- [ ]`) syntax.
 
 **Goal:** Build the MutualLink CRUD system (RAD V1–V3) in plain PHP 8.2 + PDO + MySQL on AdminLTE 3.2.
 
@@ -143,5 +143,5 @@ compute_deductions(float $principal, array $rates, float $previousLoanBalance): 
 
 - [ ] README: WAMP install, DB import, app user password, default accounts, defense notes mapping topics → files.
 - [ ] Full E2E pass + `php -l` all + test script.
-- [ ] Fresh reviewer pass on whole repo; fix findings.
+- [ ] Full code review of the repository; fix findings.
 - [ ] Commit `docs: README and deployment notes`.
