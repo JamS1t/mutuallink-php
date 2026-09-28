@@ -159,3 +159,12 @@ a:hover { color: var(--ml-green-dark); }
 .brand-link .brand-logo { width: 36px; height: 36px; flex: none; margin-left: .1rem; }
 .login-logo { display: block; margin: 0 auto .6rem; }
 .print-head img { display: block; margin: 0 auto; }
+
+/* Loan record: side-by-side only on wide screens; the schedule needs the width */
+@media (min-width: 1600px) {
+  .loan-main { flex: 0 0 66.666%; max-width: 66.666%; }
+  .loan-side { flex: 0 0 33.333%; max-width: 33.333%; }
+}
+@media (max-width: 1599.98px) {
+  .loan-side { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 0 1rem; align-items: start; }
+}

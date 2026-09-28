@@ -164,7 +164,7 @@ $order = array_keys($steps);
 $pos = array_search($loan['status'], $order, true);
 ?>
 <div class="row">
-  <div class="col-xl-8">
+  <div class="col-12 loan-main">
     <div class="card">
       <div class="card-body">
         <div class="d-flex flex-wrap align-items-center mb-3">
@@ -198,7 +198,7 @@ $pos = array_search($loan['status'], $order, true);
         <div class="card-header"><h3 class="card-title"><i class="fas fa-calendar-alt mr-2"></i>Amortization schedule</h3></div>
         <div class="card-body p-0">
           <div class="table-responsive">
-            <table class="table table-sm table-hover mb-0">
+            <table class="table table-sm table-hover mb-0 text-nowrap">
               <thead><tr><th>#</th><th>Due date</th><th class="num">Principal</th><th class="num">Interest</th><th class="num">Total due</th><th class="num">Semi-monthly</th><th class="num">Paid</th><th class="num">Balance</th><th>Status</th></tr></thead>
               <tbody>
               <?php foreach ($schedule as $s):
@@ -229,7 +229,7 @@ $pos = array_search($loan['status'], $order, true);
             <div class="empty-state"><i class="fas fa-receipt"></i>No payments yet.</div>
           <?php else: ?>
             <div class="table-responsive">
-              <table class="table table-sm table-hover mb-0">
+              <table class="table table-sm table-hover mb-0 text-nowrap">
                 <thead><tr><th>OR no.</th><th>Date</th><th>Installments</th><th class="num">Amount</th><th class="num">Penalty</th><th class="num">Interest</th><th class="num">Principal</th><th>Mode</th><th>Status</th><th></th></tr></thead>
                 <tbody>
                 <?php foreach ($payments as $p): ?>
@@ -270,7 +270,7 @@ $pos = array_search($loan['status'], $order, true);
     <?php endif; ?>
   </div>
 
-  <div class="col-xl-4">
+  <div class="col-12 loan-side">
     <?php if ($loan['status'] === 'pending' && (can('loans', 'approve') || can('loans', 'cancel'))): ?>
       <div class="card card-primary card-outline">
         <div class="card-header"><h3 class="card-title"><i class="fas fa-gavel mr-2"></i>Decision</h3></div>
