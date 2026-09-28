@@ -41,6 +41,35 @@ function current_installment(int $loanId, bool $lock = false): ?array
 }
 
 /**
+ * DFD 6.1–6.2: scan schedules against payments for unpaid installments past due.
+ * One grouped query for all loans (no per-member loop).
+ *
+ * @return list<array{loan_id:int, member_id:int, member_name:string, member_no:string, email:?string,
+ *                    oldest_due:string, overdue_count:int, amount_past_due:float, days_past_due:int}>
+ */
+function overdue_loans(string $asOf): array
+{
+    $stmt = db()->prepare(
+        "SELECT l.loan_id, m.member_id, CONCAT(m.last_name, ', ', m.first_name) AS member_name, m.member_no, m.email,
+                MIN(s.due_date) AS oldest_due, COUNT(*) AS overdue_count,
+                SUM(s.total_due - s.principal_paid - s.interest_paid) AS amount_past_due
+           FROM amortization_schedule s
+           JOIN loans l   ON l.loan_id = s.loan_id
+           JOIN members m ON m.member_id = l.member_id
+          WHERE l.status = 'released' AND s.status <> 'paid' AND s.due_date < :d
+          GROUP BY l.loan_id, m.member_id, m.last_name, m.first_name, m.member_no, m.email
+          ORDER BY oldest_due"
+    );
+    $stmt->execute([':d' => $asOf]);
+    $rows = $stmt->fetchAll();
+    foreach ($rows as &$r) {
+        $r['days_past_due'] = (int) (new DateTimeImmutable($r['oldest_due']))->diff(new DateTimeImmutable($asOf))->days;
+        $r['amount_past_due'] = money_round((float) $r['amount_past_due']);
+    }
+    return $rows;
+}
+
+/**
  * DFD 4.4–4.5: compute interest, generate the schedule, record deductions, release.
  *
  * @return array{net:float, deductions:array}
