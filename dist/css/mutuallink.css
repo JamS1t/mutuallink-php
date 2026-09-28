@@ -20,8 +20,9 @@ body {
 .content-wrapper { background: var(--ml-bg); }
 
 /* ---------- Brand & sidebar ---------- */
-.main-sidebar .brand-link {
-  background: var(--ml-green);
+.main-sidebar .brand-link,
+[class*=sidebar-light] .brand-link {
+  background: var(--ml-green) !important;
   color: #fff !important;
   border-bottom: 0 !important;
   display: flex; align-items: center; gap: .6rem;
@@ -86,8 +87,8 @@ a:hover { color: var(--ml-green-dark); }
   width: 46px; height: 46px; border-radius: 12px; flex: none;
   display: inline-flex; align-items: center; justify-content: center; font-size: 1.15rem;
 }
-.kpi .kpi-label { font-size: .78rem; color: var(--ml-muted); text-transform: uppercase; letter-spacing: .04em; }
-.kpi .kpi-value { font-size: 1.35rem; font-weight: 700; line-height: 1.2; font-variant-numeric: tabular-nums; }
+.kpi-label { font-size: .78rem; color: var(--ml-muted); text-transform: uppercase; letter-spacing: .04em; }
+.kpi-value { font-size: 1.35rem; font-weight: 700; line-height: 1.2; font-variant-numeric: tabular-nums; }
 .kpi .kpi-hint { font-size: .78rem; color: var(--ml-muted); }
 .tone-green { background: var(--ml-green-soft); color: var(--ml-green); }
 .tone-blue { background: #e8f0fb; color: #1d5fbf; }

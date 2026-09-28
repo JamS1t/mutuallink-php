@@ -32,7 +32,7 @@ function money(mixed $amount): string
 /** "capital_build_up" → "Capital Build Up" */
 function label(?string $value): string
 {
-    return ucwords(str_replace('_', ' ', (string) $value));
+    return str_replace('Cbu', 'CBU', ucwords(str_replace('_', ' ', (string) $value)));
 }
 
 function fmt_date(?string $date, string $format = 'M d, Y'): string
