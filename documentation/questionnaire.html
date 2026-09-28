@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Open Questions · MutualLink</title>
+  <link rel="icon" type="image/png" href="../dist/img/favicon.png">
+  <style>
+    :root { --teal: #1f6b81; --teal-dark: #175365; --ink: #1f2933; --muted: #6b7280; --line: #d9dee3; --bg: #f4f6f5; --accent: #f97316; }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif; }
+    .bar { position: sticky; top: 0; z-index: 5; display: flex; gap: .75rem; align-items: center; justify-content: space-between; flex-wrap: wrap; padding: .6rem 1rem; background: #fff; border-bottom: 1px solid var(--line); }
+    .bar a { color: var(--teal); text-decoration: none; font-weight: 600; }
+    .bar button { font: inherit; font-weight: 600; color: #fff; background: var(--teal); border: 0; border-radius: 6px; padding: .45rem 1rem; cursor: pointer; }
+    .bar button:hover { background: var(--teal-dark); }
+    .sheet { max-width: 820px; margin: 1.5rem auto; background: #fff; border: 1px solid var(--line); border-radius: 10px; padding: 2.2rem 2.4rem; }
+
+    header.doc { display: flex; gap: 1rem; align-items: center; border-bottom: 3px solid var(--teal); padding-bottom: 1rem; margin-bottom: 1.2rem; }
+    header.doc img { flex: none; }
+    header.doc h1 { margin: 0; font-size: 1.45rem; line-height: 1.2; }
+    header.doc p { margin: .2rem 0 0; color: var(--muted); font-size: .9rem; }
+
+    .intro { font-size: .92rem; margin: 0 0 1rem; }
+    .legend { display: flex; flex-wrap: wrap; gap: .4rem 1.2rem; font-size: .82rem; color: var(--muted); margin-bottom: 1.2rem; }
+    .legend em { font-style: normal; color: var(--accent); font-weight: 700; }
+
+    .respondent { display: grid; grid-template-columns: repeat(3, 1fr); gap: .5rem 1.2rem; margin-bottom: 1.6rem; font-size: .88rem; }
+    .respondent label { display: block; color: var(--muted); }
+    .respondent span { display: block; border-bottom: 1px solid var(--ink); height: 1.6rem; }
+
+    h2 { font-size: 1rem; text-transform: uppercase; letter-spacing: .06em; color: #fff; background: var(--teal); border-radius: 6px; padding: .4rem .8rem; margin: 1.8rem 0 .9rem; }
+    h2 small { text-transform: none; letter-spacing: 0; font-weight: 400; opacity: .85; margin-left: .4rem; }
+
+    .q { display: grid; grid-template-columns: 2rem 1fr; gap: 0 .6rem; padding: .8rem 0; border-bottom: 1px dashed var(--line); break-inside: avoid; page-break-inside: avoid; }
+    .q:last-child { border-bottom: 0; }
+    .num { width: 1.8rem; height: 1.8rem; border-radius: 50%; background: var(--teal); color: #fff; font-weight: 700; font-size: .85rem; display: flex; align-items: center; justify-content: center; }
+    .q h3 { font-size: .98rem; margin: .1rem 0 .15rem; }
+    .q .why { font-size: .84rem; color: var(--muted); margin: 0 0 .45rem; }
+    .opts { display: flex; flex-wrap: wrap; gap: .35rem 1.4rem; font-size: .9rem; }
+    .opt { display: inline-flex; align-items: flex-start; gap: .4rem; }
+    .opt::before { content: ""; flex: none; width: .95rem; height: .95rem; margin-top: .18rem; border: 1.5px solid var(--ink); border-radius: 3px; }
+    .opt em { font-style: normal; color: var(--accent); font-weight: 700; font-size: .78rem; }
+    .blank { display: inline-block; min-width: 5.5rem; border-bottom: 1px solid var(--ink); height: 1.1rem; vertical-align: bottom; }
+    .blank.wide { min-width: 14rem; }
+    .lines span { display: block; height: 1.7rem; border-bottom: 1px solid var(--line); }
+    .sub { font-size: .88rem; margin: .35rem 0 .2rem; font-weight: 600; }
+
+    .sign { display: grid; grid-template-columns: repeat(2, 1fr); gap: 2rem 2.5rem; margin-top: 2.2rem; font-size: .85rem; break-inside: avoid; }
+    .sign span { display: block; border-bottom: 1px solid var(--ink); height: 2.2rem; }
+    .sign label { color: var(--muted); }
+    footer.doc { margin-top: 1.6rem; font-size: .78rem; color: var(--muted); text-align: center; }
+
+    @media (max-width: 640px) {
+      .sheet { margin: 0; border-radius: 0; border-left: 0; border-right: 0; padding: 1.4rem 1rem; }
+      .respondent, .sign { grid-template-columns: 1fr; }
+      .blank.wide { min-width: 9rem; }
+    }
+    @page { size: A4; margin: 14mm 14mm 16mm; }
+    @media print {
+      body { background: #fff; font-size: 12.5px; }
+      .bar { display: none; }
+      .sheet { max-width: none; margin: 0; border: 0; padding: 0; }
+      h2, .num { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .team { break-before: page; }
+      a { color: inherit; text-decoration: none; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="bar">
+  <a href="./">&larr; System guide</a>
+  <span><a href="MutualLink-Open-Questions.pdf" download>Download PDF</a>&nbsp;&nbsp;
+  <button type="button" onclick="window.print()">Print questionnaire</button></span>
+</div>
+
+<main class="sheet">
+  <header class="doc">
+    <img src="../dist/img/logo-96.png" alt="MutualLink logo" width="56" height="56">
+    <div>
+      <h1>MutualLink: Open Questions for FFMPC</h1>
+      <p>Franciscan Friends Multi-Purpose Cooperative · Andres Bonifacio, Zone 1, Baybay City, Leyte</p>
+    </div>
+  </header>
+
+  <p class="intro">MutualLink is working and was built from the questionnaire answers and the sample loan computation. The questions below are the remaining points where the cooperative's rules are not yet written down. For each one, the system already follows a default, marked <strong>(current)</strong>. Please tick the box that matches FFMPC's practice, or write the correct rule.</p>
+  <div class="legend"><span>☐ Tick one or more boxes</span><span><em>(current)</em> = what the system does today</span><span>Blank lines = write the rule or amount</span></div>
+
+  <div class="respondent">
+    <div><label>Answered by</label><span></span></div>
+    <div><label>Position</label><span></span></div>
+    <div><label>Date</label><span></span></div>
+  </div>
+
+  <!-- A -->
+  <h2>A. Money computations <small>please answer first</small></h2>
+
+  <div class="q"><div class="num">1</div><div>
+    <h3>Rounding of monthly amounts</h3>
+    <p class="why">The sample Excel sheet rounds each monthly amount down to ₱0.05.</p>
+    <div class="opts">
+      <span class="opt">Keep exact centavos; the last month absorbs the difference <em>(current)</em></span>
+      <span class="opt">Round down to ₱0.05, like the Excel sheet</span>
+      <span class="opt">Other: <span class="blank wide"></span></span>
+    </div>
+  </div></div>
+
+  <div class="q"><div class="num">2</div><div>
+    <h3>How a "month" is counted after the loan term ends</h3>
+    <p class="why">Used for the 3% interest + 4% penalty per month.</p>
+    <div class="opts">
+      <span class="opt">30-day blocks; a partial month counts as one month <em>(current)</em></span>
+      <span class="opt">Calendar months</span>
+      <span class="opt">Other: <span class="blank wide"></span></span>
+    </div>
+  </div></div>
+
+  <div class="q"><div class="num">3</div><div>
+    <h3>Base of the after-term interest and penalty</h3>
+    <div class="opts">
+      <span class="opt">Unpaid principal only <em>(current)</em></span>
+      <span class="opt">Unpaid principal + unpaid interest</span>
+      <span class="opt">Other: <span class="blank wide"></span></span>
+    </div>
+  </div></div>
+
+  <div class="q"><div class="num">4</div><div>
+    <h3>Late installment while the loan is still within its term</h3>
+    <div class="opts">
+      <span class="opt">No penalty until the term ends; only listed as delinquent <em>(current)</em></span>
+      <span class="opt">Penalty of <span class="blank"></span> % per month</span>
+      <span class="opt">Grace period of <span class="blank"></span> days</span>
+    </div>
+  </div></div>
+
+  <div class="q"><div class="num">5</div><div>
+    <h3>Loan insurance (0.56%)</h3>
+    <p class="why">The sample loan was 9 months.</p>
+    <div class="opts">
+      <span class="opt">Same 0.56% for any term <em>(current)</em></span>
+      <span class="opt">Depends on the term: <span class="blank wide"></span></span>
+    </div>
+  </div></div>
+
+  <div class="q"><div class="num">6</div><div>
+    <h3>Service fee (3%) and notarial fee (₱200)</h3>
+    <div class="opts">
+      <span class="opt">Charged on every product, including Emergency Loan <em>(current)</em></span>
+      <span class="opt">Not charged on Emergency Loan</span>
+      <span class="opt">Other: <span class="blank wide"></span></span>
+    </div>
+  </div></div>
+
+  <div class="q"><div class="num">7</div><div>
+    <h3>Renewal: previous loan deducted from the new loan</h3>
+    <div class="opts">
+      <span class="opt">Remaining principal only <em>(current)</em></span>
+      <span class="opt">Remaining principal + interest due</span>
+      <span class="opt">Other: <span class="blank wide"></span></span>
+    </div>
+  </div></div>
+
+  <!-- B -->
+  <h2>B. Loan policy</h2>
+
+  <div class="q"><div class="num">8</div><div>
+    <h3>Salary Loan: how much can be borrowed?</h3>
+    <p class="why">Net pay is recorded but not yet used to compute a limit <strong>(current)</strong>.</p>
+    <div class="opts"><span class="opt">Up to <span class="blank"></span> % of monthly net pay</span><span class="opt">Up to <span class="blank"></span> × monthly net pay</span></div>
+    <p class="sub">Other rule:</p><div class="lines"><span></span></div>
+  </div></div>
+
+  <div class="q"><div class="num">9</div><div>
+    <h3>Regular Loan for school-based members</h3>
+    <p class="why">Every Regular Loan needs collateral and is capped at 30% of its appraised value, including for school-based members <strong>(current)</strong>.</p>
+    <div class="opts"><span class="opt">Keep: collateral for every Regular Loan <em>(current)</em></span><span class="opt">School-based members may borrow without collateral, up to ₱ <span class="blank"></span></span></div>
+  </div></div>
+
+  <div class="q"><div class="num">10</div><div>
+    <h3>Emergency Loan requirements</h3>
+    <div class="opts">
+      <span class="opt">Co-maker required <em>(current)</em></span><span class="opt">No co-maker needed</span>
+      <span class="opt">Collateral required</span><span class="opt">No collateral needed</span>
+    </div>
+  </div></div>
+
+  <div class="q"><div class="num">11</div><div>
+    <h3>Co-maker rules</h3>
+    <div class="opts">
+      <span class="opt">Co-maker must be a member</span><span class="opt">Anyone may be a co-maker <em>(current: name only)</em></span>
+      <span class="opt">One person may co-sign up to <span class="blank"></span> loans at a time</span>
+    </div>
+  </div></div>
+
+  <div class="q"><div class="num">12</div><div>
+    <h3>Number of loans per member</h3>
+    <div class="opts">
+      <span class="opt">Up to <span class="blank"></span> active loans at once</span>
+      <span class="opt">Same product may be held twice</span><span class="opt">Only one loan per product</span>
+    </div>
+  </div></div>
+
+  <div class="q"><div class="num">13</div><div>
+    <h3>Credit committee in the system</h3>
+    <div class="opts">
+      <span class="opt">Manager records the committee's decision <em>(current)</em></span>
+      <span class="opt">Committee members get their own logins</span>
+    </div>
+  </div></div>
+
+  <div class="q"><div class="num">14</div><div>
+    <h3>Due dates for members paying by salary deduction</h3>
+    <div class="opts">
+      <span class="opt">Monthly, on the same day as the release date <em>(current)</em></span>
+      <span class="opt">On the payroll dates (15th and 30th)</span>
+      <span class="opt">Other: <span class="blank wide"></span></span>
+    </div>
+  </div></div>
+
+  <!-- C -->
+  <h2>C. Membership and savings</h2>
+
+  <div class="q"><div class="num">15</div><div>
+    <h3>Membership fee</h3>
+    <div class="opts"><span class="opt">Fixed at ₱ <span class="blank"></span></span><span class="opt">Varies; cashier types the amount <em>(current)</em></span></div>
+  </div></div>
+
+  <div class="q"><div class="num">16</div><div>
+    <h3>Capital build-up (₱100 per month)</h3>
+    <div class="opts">
+      <span class="opt">Reminder only <em>(current)</em></span>
+      <span class="opt">Required; deducted from <span class="blank wide"></span></span>
+    </div>
+  </div></div>
+
+  <div class="q"><div class="num">17</div><div>
+    <h3>Interest on savings and dividends on share capital</h3>
+    <div class="opts">
+      <span class="opt">No interest or dividends in the system <em>(current)</em></span>
+      <span class="opt">Regular savings earn <span class="blank"></span> % per year</span>
+      <span class="opt">Time deposit earns <span class="blank"></span> % for <span class="blank"></span> months</span>
+      <span class="opt">Dividends / patronage refund should be computed</span>
+    </div>
+  </div></div>
+
+  <div class="q"><div class="num">18</div><div>
+    <h3>Returning share capital when a member resigns</h3>
+    <p class="why">Share capital withdrawals are blocked today <strong>(current)</strong>. What is the process, and who approves it?</p>
+    <div class="lines"><span></span><span></span></div>
+  </div></div>
+
+  <div class="q"><div class="num">19</div><div>
+    <h3>Dormant or inactive accounts</h3>
+    <p class="why">Is a member or account made inactive after a period without transactions? Are there fees?</p>
+    <div class="lines"><span></span><span></span></div>
+  </div></div>
+
+  <!-- D -->
+  <h2>D. Operations and setup</h2>
+
+  <div class="q"><div class="num">20</div><div>
+    <h3>Existing records from the manual books</h3>
+    <p class="why">The system cannot yet enter opening balances for current members and running loans. This is needed before real use.</p>
+    <div class="opts">
+      <span class="opt">Encode balances by hand</span><span class="opt">Import from Excel</span><span class="opt">Start fresh from a set date</span>
+    </div>
+    <p class="sub">Start date and number of members / active loans: <span class="blank wide"></span></p>
+  </div></div>
+
+  <div class="q"><div class="num">21</div><div>
+    <h3>Official receipts</h3>
+    <div class="opts">
+      <span class="opt">One series for all transactions <em>(current)</em></span>
+      <span class="opt">Separate series for savings and loans</span>
+      <span class="opt">Receipt must follow a registered format / paper size</span>
+    </div>
+    <p class="sub">Format or paper size required:</p><div class="lines"><span></span></div>
+  </div></div>
+
+  <div class="q"><div class="num">22</div><div>
+    <h3>Payment reminders</h3>
+    <div class="opts">
+      <span class="opt">Staff send from their own email app <em>(current)</em></span>
+      <span class="opt">Cooperative email account: <span class="blank wide"></span></span>
+      <span class="opt">Text message (SMS) preferred</span>
+    </div>
+  </div></div>
+
+  <div class="q"><div class="num">23</div><div>
+    <h3>Where the system will run</h3>
+    <div class="opts">
+      <span class="opt">One office computer</span>
+      <span class="opt">Several computers on the office network</span>
+      <span class="opt">Number of cashiers at the same time: <span class="blank"></span></span>
+    </div>
+  </div></div>
+
+  <div class="q"><div class="num">24</div><div>
+    <h3>Backups</h3>
+    <div class="opts">
+      <span class="opt">Daily</span><span class="opt">Weekly</span>
+      <span class="opt">Responsible person: <span class="blank wide"></span></span>
+      <span class="opt">Stored on: <span class="blank wide"></span></span>
+    </div>
+  </div></div>
+
+  <div class="q"><div class="num">25</div><div>
+    <h3>Demand letter wording</h3>
+    <p class="why">The letter gives 15 days to settle and sends a copy to the co-maker.</p>
+    <div class="opts"><span class="opt">Approved as is</span><span class="opt">Needs changes (write below)</span></div>
+    <div class="lines"><span></span></div>
+  </div></div>
+
+  <div class="sign">
+    <div><span></span><label>Signature over printed name (FFMPC)</label></div>
+    <div><span></span><label>Date received by the capstone team</label></div>
+  </div>
+
+  <!-- E -->
+  <section class="team">
+    <h2>E. For the capstone team <small>manuscript consistency</small></h2>
+
+    <div class="q"><div class="num">26</div><div>
+      <h3>AdminLTE version in Chapter III</h3>
+      <p class="why">The manuscript says 4.9.1 / Bootstrap 5.3.8; the system uses AdminLTE 3.2.0 / Bootstrap 4.6.1.</p>
+      <div class="opts"><span class="opt">Update the manuscript to 3.2.0</span><span class="opt">Keep as is (reason below)</span></div>
+      <div class="lines"><span></span></div>
+    </div></div>
+
+    <div class="q"><div class="num">27</div><div>
+      <h3>Aging brackets</h3>
+      <p class="why">1–30, 31–60, 61–90, 91–180, 181–365, and over 365 days <strong>(current)</strong>.</p>
+      <div class="opts"><span class="opt">Confirmed</span><span class="opt">Change to: <span class="blank wide"></span></span></div>
+    </div></div>
+  </section>
+
+  <footer class="doc">MutualLink · Integrated Loan, Balance, and Savings Management System · Prepared September 28, 2026</footer>
+</main>
+
+</body>
+</html>
