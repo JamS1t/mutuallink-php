@@ -49,7 +49,8 @@
   }
 
   /* ---------- Toastr flash messages ---------- */
-  toastr.options = { closeButton: true, progressBar: true, newestOnTop: true, positionClass: 'toast-top-right', timeOut: 5000, preventDuplicates: true };
+  // escapeHtml: messages can contain names typed by users, so render them as text.
+  toastr.options = { escapeHtml: true, closeButton: true, progressBar: true, newestOnTop: true, positionClass: 'toast-top-right', timeOut: 5000, preventDuplicates: true };
   var flashEl = document.getElementById('ml-flash');
   if (flashEl) {
     try {

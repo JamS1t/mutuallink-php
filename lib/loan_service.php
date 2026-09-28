@@ -278,7 +278,10 @@ function void_payment(int $paymentId, string $reason): void
         }
         $stmt = $pdo->prepare('SELECT loan_id, status FROM loans WHERE loan_id = :id FOR UPDATE');
         $stmt->execute([':id' => $p['loan_id']]);
-        $loan = $stmt->fetch();
+        $loan = $stmt->fetch(); // locked so a payment cannot be posted on this loan while voiding
+        if (!$loan || !in_array($loan['status'], ['released', 'paid'], true)) {
+            throw new DomainException('Payments of this loan can no longer be voided.');
+        }
 
         $stmt = $pdo->prepare("SELECT MAX(payment_id) FROM payments WHERE loan_id = :id AND status = 'posted' AND mode <> 'offset'");
         $stmt->execute([':id' => $p['loan_id']]);
