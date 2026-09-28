@@ -6,6 +6,16 @@ declare(strict_types=1);
  * flash messages, audit trail, counters, and JSON responses.
  */
 
+const ACCOUNT_TYPES = [
+    'regular_savings'  => 'Regular Savings',
+    'share_capital'    => 'Share Capital',
+    'capital_build_up' => 'Capital Build-Up',
+    'time_deposit'     => 'Time Deposit',
+];
+
+// Only these accounts allow withdrawals; share capital and CBU are withdrawal-locked.
+const WITHDRAWABLE = ['regular_savings', 'time_deposit'];
+
 /* ---------------- Output ---------------- */
 
 /** Context-aware output escaping for HTML text and attributes. */
@@ -286,6 +296,111 @@ function flash_errors(array $errors): void
     foreach ($errors as $msg) {
         flash('error', $msg);
     }
+}
+
+/* ---------------- Savings posting (DFD process 3.0) ----------------
+ * Writes one ledger line and updates the account balance.
+ * MUST be called inside a transaction: the account row is locked
+ * (SELECT … FOR UPDATE) so two postings can never both read the same
+ * starting balance. Business-rule violations throw DomainException.
+ *
+ * @param int $direction +1 adds to the balance, -1 subtracts
+ * @return array{txn_id:int, or_no:?string, balance:float}
+ */
+function savings_entry(int $savingsId, string $txnType, float $amount, int $direction, string $date,
+                       ?string $remarks = null, ?int $reversesTxnId = null, bool $issueOr = true): array
+{
+    $pdo = db();
+    $stmt = $pdo->prepare('SELECT balance, status FROM savings_accounts WHERE savings_id = :id FOR UPDATE');
+    $stmt->execute([':id' => $savingsId]);
+    $acct = $stmt->fetch();
+    if (!$acct) {
+        throw new DomainException('Savings account not found.');
+    }
+    if ($acct['status'] !== 'active') {
+        throw new DomainException('This account is closed.');
+    }
+    $newBalance = money_round((float) $acct['balance'] + $direction * $amount);
+    if ($newBalance < 0) {
+        throw new DomainException('Insufficient balance: available ' . money($acct['balance']) . '.');
+    }
+    $orNo = $issueOr ? next_or_no() : null;
+
+    $pdo->prepare(
+        'INSERT INTO savings_transactions (savings_id, txn_date, txn_type, amount, running_balance, or_no, posted_by, reverses_txn_id, remarks)
+         VALUES (:s, :d, :t, :a, :rb, :or, :u, :rev, :rem)'
+    )->execute([
+        ':s' => $savingsId, ':d' => $date, ':t' => $txnType, ':a' => $amount, ':rb' => $newBalance,
+        ':or' => $orNo, ':u' => current_user_id(), ':rev' => $reversesTxnId, ':rem' => $remarks,
+    ]);
+    $txnId = (int) $pdo->lastInsertId();
+
+    $upd = $pdo->prepare('UPDATE savings_accounts SET balance = :b WHERE savings_id = :id');
+    $upd->execute([':b' => $newBalance, ':id' => $savingsId]);
+
+    return ['txn_id' => $txnId, 'or_no' => $orNo, 'balance' => $newBalance];
+}
+
+/* ---------------- Eligibility summary (DFD process 4.2) ----------------
+ * Reads the member profile and payment history and returns one summary,
+ * replacing the manual retrieval of several records. It informs the
+ * credit committee; it does not decide the loan.
+ */
+function member_eligibility(int $memberId): array
+{
+    $pdo = db();
+    $stmt = $pdo->prepare(
+        "SELECT m.status, m.member_type,
+                COALESCE((SELECT balance FROM savings_accounts WHERE member_id = m.member_id AND account_type = 'share_capital'), 0) AS share_capital,
+                (SELECT COUNT(*) FROM loans WHERE member_id = m.member_id AND status = 'released') AS active_loans,
+                (SELECT COALESCE(SUM(outstanding_balance), 0) FROM loans WHERE member_id = m.member_id AND status = 'released') AS outstanding,
+                (SELECT COUNT(*) FROM amortization_schedule s JOIN loans l ON l.loan_id = s.loan_id
+                  WHERE l.member_id = m.member_id AND l.status = 'released' AND s.status <> 'paid' AND s.due_date < CURDATE()) AS past_due,
+                (SELECT COUNT(*) FROM payments p JOIN amortization_schedule s ON s.schedule_id = p.schedule_id JOIN loans l ON l.loan_id = p.loan_id
+                  WHERE l.member_id = m.member_id AND p.status = 'posted' AND p.mode <> 'offset' AND p.payment_date > s.due_date) AS late_payments,
+                (SELECT COUNT(*) FROM loans WHERE member_id = m.member_id AND status = 'paid') AS paid_loans
+           FROM members m WHERE m.member_id = :id"
+    );
+    $stmt->execute([':id' => $memberId]);
+    $d = $stmt->fetch();
+    if (!$d) {
+        return ['items' => [], 'data' => []];
+    }
+    $minShare = (float) setting('min_share_capital');
+    $items = [];
+    $items[] = $d['status'] === 'active'
+        ? ['ok', 'Active membership', 'Member is in good standing.']
+        : ['bad', 'Inactive membership', 'Reactivate the member before any new loan.'];
+    $items[] = (float) $d['share_capital'] >= $minShare
+        ? ['ok', 'Share capital', money($d['share_capital']) . ' (minimum ' . money($minShare) . ')']
+        : ['bad', 'Share capital below minimum', money($d['share_capital']) . ' of the required ' . money($minShare)];
+    $items[] = (int) $d['past_due'] === 0
+        ? ['ok', 'No past-due installments', 'All installments due so far are paid.']
+        : ['bad', 'Has past-due installments', (int) $d['past_due'] . ' installment(s) are overdue.'];
+    $late = (int) $d['late_payments'];
+    $items[] = $late === 0
+        ? ['ok', 'Payment record', 'No late payments on record; ' . (int) $d['paid_loans'] . ' loan(s) fully paid.']
+        : [$late <= 2 ? 'warn' : 'bad', 'Payment record', "$late payment(s) were made after the due date."];
+    $items[] = (int) $d['active_loans'] === 0
+        ? ['ok', 'Existing loans', 'No outstanding loan.']
+        : ['warn', 'Existing loans', (int) $d['active_loans'] . ' released loan(s), ' . money($d['outstanding']) . ' outstanding. Can be offset as previous-loan deduction on renewal.'];
+    $items[] = $d['member_type'] === 'outside'
+        ? ['warn', 'Collateral required', 'Member is from outside the school: collateral must be submitted.']
+        : ['ok', 'Collateral', 'School-based member: collateral not required.'];
+    $items[] = ['info', 'Co-maker', 'A co-maker must sign the application.'];
+
+    return ['items' => $items, 'data' => $d];
+}
+
+function eligibility_list(array $items): string
+{
+    $icons = ['ok' => 'fa-check-circle ok', 'warn' => 'fa-exclamation-circle warn', 'bad' => 'fa-times-circle bad', 'info' => 'fa-info-circle text-muted'];
+    $html = '<ul class="check-list">';
+    foreach ($items as [$level, $label, $detail]) {
+        $html .= '<li><i class="fas ' . $icons[$level] . ' mt-1" aria-hidden="true"></i><div><strong>' . e($label)
+            . '</strong><span class="sr-only"> (' . e($level) . ')</span><div class="small text-muted">' . e($detail) . '</div></div></li>';
+    }
+    return $html . '</ul>';
 }
 
 /* ---------------- JSON responses (API endpoints) ---------------- */
