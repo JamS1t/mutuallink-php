@@ -20,21 +20,16 @@ body {
 .content-wrapper { background: var(--ml-bg); }
 
 /* ---------- Brand & sidebar ---------- */
+/* Bare logo on the sidebar's own background — no colored block behind it */
 .main-sidebar .brand-link,
 [class*=sidebar-light] .brand-link {
-  background: var(--ml-green) !important;
-  color: #fff !important;
-  border-bottom: 0 !important;
+  background: #fff !important;
+  color: var(--ml-green) !important;
+  border-bottom: 1px solid var(--ml-line) !important;
   display: flex; align-items: center; gap: .6rem;
 }
-.brand-mark {
-  width: 34px; height: 34px; border-radius: 9px;
-  background: #fff; color: var(--ml-green);
-  display: inline-flex; align-items: center; justify-content: center;
-  font-weight: 800; font-size: 1rem; letter-spacing: -.5px; flex: none;
-}
-.brand-link .brand-text { font-weight: 700 !important; letter-spacing: .2px; }
-.brand-link small { display: block; font-size: .68rem; opacity: .8; font-weight: 400; margin-top: -2px; }
+.brand-link .brand-text { font-weight: 700 !important; letter-spacing: .2px; color: var(--ml-ink); }
+.brand-link small { display: block; font-size: .68rem; color: var(--ml-muted); font-weight: 400; margin-top: -2px; }
 .sidebar-collapse .brand-link small { display: none; }
 
 .sidebar .user-panel { border-bottom: 1px solid var(--ml-line); }
@@ -124,7 +119,6 @@ a:hover { color: var(--ml-green-dark); }
 .login-page { background: linear-gradient(135deg, var(--ml-green) 0%, var(--ml-green-dark) 55%, #0f3440 100%); }
 .login-box { width: 380px; }
 .login-brand { color: #fff; text-align: center; margin-bottom: 1.2rem; }
-.login-brand .brand-mark { width: 54px; height: 54px; font-size: 1.4rem; border-radius: 14px; margin-bottom: .6rem; }
 .login-brand h1 { font-size: 1.6rem; font-weight: 800; margin: 0; }
 .login-brand p { opacity: .85; margin: .2rem 0 0; font-size: .9rem; }
 .login-card-body { border-radius: .8rem; padding: 1.6rem; }
@@ -162,10 +156,6 @@ a:hover { color: var(--ml-green-dark); }
 .opacity-50 { opacity: .55; }
 
 /* ---------- Logo ---------- */
-.brand-link .brand-logo { width: 34px; height: 34px; flex: none; margin-left: .2rem; }
-.login-logo-badge {
-  display: inline-flex; align-items: center; justify-content: center;
-  width: 96px; height: 96px; border-radius: 24px; background: #fff; margin-bottom: .7rem;
-  box-shadow: 0 6px 18px rgba(0, 0, 0, .18);
-}
+.brand-link .brand-logo { width: 36px; height: 36px; flex: none; margin-left: .1rem; }
+.login-logo { display: block; margin: 0 auto .6rem; }
 .print-head img { display: block; margin: 0 auto; }

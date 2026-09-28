@@ -82,7 +82,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <body class="hold-transition login-page">
 <main class="login-box">
   <div class="login-brand">
-    <span class="login-logo-badge"><img src="dist/img/logo-256.png" alt="MutualLink logo" width="84" height="84"></span>
+    <img src="dist/img/logo-white-256.png" alt="MutualLink logo" class="login-logo" width="96" height="96">
     <h1>MutualLink</h1>
     <p>Franciscan Friends Multi-Purpose Cooperative</p>
   </div>
