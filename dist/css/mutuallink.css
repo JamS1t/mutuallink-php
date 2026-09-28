@@ -1,0 +1,158 @@
+/* ==========================================================
+   MutualLink theme on top of AdminLTE 3.2 / Bootstrap 4.6
+   Cooperative green + warm Franciscan brown accent.
+   ========================================================== */
+:root {
+  --ml-green: #1f6f50;
+  --ml-green-dark: #17553d;
+  --ml-green-soft: #e8f3ee;
+  --ml-brown: #8a5a2b;
+  --ml-ink: #1f2933;
+  --ml-muted: #6b7280;
+  --ml-line: #e5e7eb;
+  --ml-bg: #f4f6f5;
+}
+
+body {
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  color: var(--ml-ink);
+}
+.content-wrapper { background: var(--ml-bg); }
+
+/* ---------- Brand & sidebar ---------- */
+.main-sidebar .brand-link {
+  background: var(--ml-green);
+  color: #fff !important;
+  border-bottom: 0 !important;
+  display: flex; align-items: center; gap: .6rem;
+}
+.brand-mark {
+  width: 34px; height: 34px; border-radius: 9px;
+  background: #fff; color: var(--ml-green);
+  display: inline-flex; align-items: center; justify-content: center;
+  font-weight: 800; font-size: 1rem; letter-spacing: -.5px; flex: none;
+}
+.brand-link .brand-text { font-weight: 700 !important; letter-spacing: .2px; }
+.brand-link small { display: block; font-size: .68rem; opacity: .8; font-weight: 400; margin-top: -2px; }
+.sidebar-collapse .brand-link small { display: none; }
+
+.sidebar .user-panel { border-bottom: 1px solid var(--ml-line); }
+.user-panel .avatar {
+  width: 34px; height: 34px; border-radius: 50%;
+  background: var(--ml-green-soft); color: var(--ml-green);
+  display: inline-flex; align-items: center; justify-content: center; font-weight: 700;
+}
+.user-panel .role-chip { font-size: .72rem; color: var(--ml-muted); }
+
+.nav-sidebar .nav-header {
+  font-size: .68rem; text-transform: uppercase; letter-spacing: .08em;
+  color: var(--ml-muted) !important; padding-top: 1rem;
+}
+.sidebar-light-success .nav-sidebar > .nav-item > .nav-link.active {
+  background: var(--ml-green) !important; color: #fff !important;
+  box-shadow: 0 2px 6px rgba(31, 111, 80, .25);
+}
+.nav-sidebar .nav-link:focus-visible { outline: 2px solid var(--ml-green); outline-offset: -2px; }
+
+/* ---------- Page header ---------- */
+.content-header h1 { font-size: 1.45rem; font-weight: 700; }
+.content-header .page-sub { color: var(--ml-muted); font-size: .9rem; margin-top: .15rem; }
+
+/* ---------- Cards ---------- */
+.card { border: 1px solid var(--ml-line); box-shadow: 0 1px 2px rgba(16, 24, 40, .04); border-radius: .6rem; }
+.card-header { background: #fff; border-bottom: 1px solid var(--ml-line); }
+.card-header .card-title { font-weight: 600; font-size: 1rem; }
+.card-primary.card-outline { border-top: 3px solid var(--ml-green); }
+
+/* ---------- Buttons & badges ---------- */
+.btn-primary, .bg-primary, .badge-primary { background-color: var(--ml-green) !important; border-color: var(--ml-green) !important; }
+.btn-primary:hover, .btn-primary:focus { background-color: var(--ml-green-dark) !important; border-color: var(--ml-green-dark) !important; }
+.btn-outline-primary { color: var(--ml-green); border-color: var(--ml-green); }
+.btn-outline-primary:hover { background: var(--ml-green); border-color: var(--ml-green); }
+a { color: var(--ml-green); }
+a:hover { color: var(--ml-green-dark); }
+.text-primary { color: var(--ml-green) !important; }
+.badge { font-weight: 600; padding: .35em .6em; }
+.badge-light { background: #eef0f2; color: #374151; }
+.form-control:focus, .custom-select:focus { border-color: var(--ml-green); box-shadow: 0 0 0 .2rem rgba(31, 111, 80, .15); }
+.page-item.active .page-link { background: var(--ml-green); border-color: var(--ml-green); }
+
+/* ---------- KPI tiles ---------- */
+.kpi {
+  background: #fff; border: 1px solid var(--ml-line); border-radius: .6rem;
+  padding: 1rem 1.1rem; display: flex; gap: .9rem; align-items: center; height: 100%;
+}
+.kpi .kpi-icon {
+  width: 46px; height: 46px; border-radius: 12px; flex: none;
+  display: inline-flex; align-items: center; justify-content: center; font-size: 1.15rem;
+}
+.kpi .kpi-label { font-size: .78rem; color: var(--ml-muted); text-transform: uppercase; letter-spacing: .04em; }
+.kpi .kpi-value { font-size: 1.35rem; font-weight: 700; line-height: 1.2; font-variant-numeric: tabular-nums; }
+.kpi .kpi-hint { font-size: .78rem; color: var(--ml-muted); }
+.tone-green { background: var(--ml-green-soft); color: var(--ml-green); }
+.tone-blue { background: #e8f0fb; color: #1d5fbf; }
+.tone-amber { background: #fdf3e1; color: #a15c00; }
+.tone-red { background: #fde8e8; color: #b42318; }
+.tone-brown { background: #f5ece3; color: var(--ml-brown); }
+
+/* ---------- Tables & numbers ---------- */
+.table thead th { font-size: .78rem; text-transform: uppercase; letter-spacing: .03em; color: var(--ml-muted); border-bottom-width: 1px; }
+.num, td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.table td { vertical-align: middle; }
+.table-sm td, .table-sm th { padding: .45rem .6rem; }
+
+/* ---------- Detail lists ---------- */
+.dl-grid { display: grid; grid-template-columns: 170px 1fr; gap: .45rem 1rem; margin: 0; }
+.dl-grid dt { color: var(--ml-muted); font-weight: 500; }
+.dl-grid dd { margin: 0; }
+@media (max-width: 575px) { .dl-grid { grid-template-columns: 1fr; } .dl-grid dt { margin-top: .4rem; } }
+
+.stat-strip { display: flex; flex-wrap: wrap; gap: 1.5rem; }
+.stat-strip .stat .v { font-size: 1.15rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.stat-strip .stat .l { font-size: .75rem; color: var(--ml-muted); text-transform: uppercase; letter-spacing: .04em; }
+
+/* ---------- Eligibility checklist ---------- */
+.check-list { list-style: none; padding: 0; margin: 0; }
+.check-list li { display: flex; gap: .6rem; padding: .5rem 0; border-bottom: 1px dashed var(--ml-line); }
+.check-list li:last-child { border-bottom: 0; }
+.check-list .ok { color: var(--ml-green); }
+.check-list .warn { color: #a15c00; }
+.check-list .bad { color: #b42318; }
+
+/* ---------- Login ---------- */
+.login-page { background: linear-gradient(135deg, var(--ml-green) 0%, var(--ml-green-dark) 55%, #0f3b2a 100%); }
+.login-box { width: 380px; }
+.login-brand { color: #fff; text-align: center; margin-bottom: 1.2rem; }
+.login-brand .brand-mark { width: 54px; height: 54px; font-size: 1.4rem; border-radius: 14px; margin-bottom: .6rem; }
+.login-brand h1 { font-size: 1.6rem; font-weight: 800; margin: 0; }
+.login-brand p { opacity: .85; margin: .2rem 0 0; font-size: .9rem; }
+.login-card-body { border-radius: .8rem; padding: 1.6rem; }
+.login-foot { color: rgba(255, 255, 255, .75); text-align: center; font-size: .8rem; margin-top: 1rem; }
+
+/* ---------- Tabs ---------- */
+.nav-tabs .nav-link.active { color: var(--ml-green); font-weight: 600; border-top: 2px solid var(--ml-green); }
+
+/* ---------- Search results (member lookup) ---------- */
+.lookup-results { max-height: 260px; overflow-y: auto; }
+.lookup-results .list-group-item { cursor: pointer; }
+.lookup-results .list-group-item:hover, .lookup-results .list-group-item:focus { background: var(--ml-green-soft); }
+
+/* ---------- Empty states ---------- */
+.empty-state { text-align: center; padding: 2.5rem 1rem; color: var(--ml-muted); }
+.empty-state i { font-size: 2rem; margin-bottom: .6rem; opacity: .5; display: block; }
+
+/* ---------- Print (receipts, schedules, reports) ---------- */
+.print-doc { max-width: 820px; margin: 1.5rem auto; background: #fff; padding: 2rem; border: 1px solid var(--ml-line); border-radius: .5rem; }
+.print-doc.receipt { max-width: 420px; font-size: .9rem; }
+.print-head { text-align: center; border-bottom: 2px solid var(--ml-ink); padding-bottom: .6rem; margin-bottom: 1rem; }
+.print-head h2 { font-size: 1.1rem; font-weight: 800; margin: 0; }
+.print-head p { margin: 0; font-size: .8rem; }
+.print-actions { max-width: 820px; margin: 1rem auto 0; display: flex; gap: .5rem; justify-content: flex-end; }
+@media print {
+  .main-sidebar, .main-header, .main-footer, .no-print, .content-header .breadcrumb,
+  .dataTables_filter, .dataTables_length, .dataTables_paginate, .dt-buttons, .print-actions { display: none !important; }
+  .content-wrapper { margin-left: 0 !important; background: #fff !important; }
+  .card { border: 0; box-shadow: none; }
+  .print-doc { border: 0; margin: 0 auto; padding: 0; }
+  body { background: #fff; }
+}
