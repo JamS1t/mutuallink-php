@@ -5,7 +5,7 @@ $id = get_id();
 $isEdit = $id > 0;
 require_permission('products', $isEdit ? 'update' : 'create');
 
-$p = ['product_name' => '', 'min_amount' => '', 'max_amount' => '', 'term_months' => '12', 'interest_rate' => '3.00', 'penalty_rate' => '4.00'];
+$p = ['product_name' => '', 'min_amount' => '', 'max_amount' => '', 'term_months' => '12', 'interest_rate' => '3.00', 'penalty_rate' => '4.00', 'loanable_basis' => 'fixed'];
 if ($isEdit) {
     $stmt = db()->prepare('SELECT * FROM loan_products WHERE product_id = :id');
     $stmt->execute([':id' => $id]);
@@ -28,6 +28,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $term = int_in($errors, 'term_months', 'Maximum term', 1, 60);
     $rate = money_in($errors, 'interest_rate', 'Interest rate', true, 0.01, 10.00);
     $penalty = money_in($errors, 'penalty_rate', 'Penalty rate', true, 0.00, 10.00);
+    $basis = enum_in($errors, 'loanable_basis', 'loanable amount basis', array_keys(LOANABLE_BASIS));
     if ($min !== null && $max !== null && $max < $min) {
         $errors[] = 'Maximum amount must be greater than or equal to the minimum.';
     }
@@ -43,14 +44,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         flash_errors($errors);
     } else {
         try {
-            $params = [':n' => $name, ':mi' => $min, ':ma' => $max, ':t' => $term, ':r' => $rate, ':p' => $penalty];
+            $params = [':n' => $name, ':mi' => $min, ':ma' => $max, ':t' => $term, ':r' => $rate, ':p' => $penalty, ':b' => $basis];
             if ($isEdit) {
                 $params[':id'] = $id;
-                db()->prepare('UPDATE loan_products SET product_name = :n, min_amount = :mi, max_amount = :ma, term_months = :t, interest_rate = :r, penalty_rate = :p WHERE product_id = :id')
+                db()->prepare('UPDATE loan_products SET product_name = :n, min_amount = :mi, max_amount = :ma, term_months = :t, interest_rate = :r, penalty_rate = :p, loanable_basis = :b WHERE product_id = :id')
                     ->execute($params);
                 audit_log('update', 'loan_products', $id, "$name: {$rate}% interest, {$penalty}% penalty");
             } else {
-                db()->prepare('INSERT INTO loan_products (product_name, min_amount, max_amount, term_months, interest_rate, penalty_rate) VALUES (:n, :mi, :ma, :t, :r, :p)')
+                db()->prepare('INSERT INTO loan_products (product_name, min_amount, max_amount, term_months, interest_rate, penalty_rate, loanable_basis) VALUES (:n, :mi, :ma, :t, :r, :p, :b)')
                     ->execute($params);
                 audit_log('create', 'loan_products', (int) db()->lastInsertId(), $name);
             }
@@ -92,9 +93,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
               <input type="text" inputmode="decimal" class="form-control" id="interest_rate" name="interest_rate" required value="<?= e(old('interest_rate', $p['interest_rate'])) ?>">
             </div>
             <div class="form-group col-md-4">
-              <label for="penalty_rate">Penalty (% / month late) <span class="text-danger">*</span></label>
+              <label for="penalty_rate">Penalty (% / month after term) <span class="text-danger">*</span></label>
               <input type="text" inputmode="decimal" class="form-control" id="penalty_rate" name="penalty_rate" required value="<?= e(old('penalty_rate', $p['penalty_rate'])) ?>">
             </div>
+          </div>
+          <div class="form-group">
+            <label for="loanable_basis">Loanable amount based on</label>
+            <select class="custom-select" id="loanable_basis" name="loanable_basis">
+              <?php foreach (LOANABLE_BASIS as $k => $v): ?><option value="<?= e($k) ?>" <?= old('loanable_basis', $p['loanable_basis']) === $k ? 'selected' : '' ?>><?= e($v) ?></option><?php endforeach; ?>
+            </select>
           </div>
           <p class="small text-muted mb-0">Interest is fixed into each loan's schedule when it is released, so a rate change applies to loans released afterwards. Penalties use the product's current penalty rate.</p>
         </div>

@@ -34,9 +34,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($date && $date > date('Y-m-d')) {
         $errors[] = 'Transaction date cannot be in the future.';
     }
-    if ($acct['member_status'] !== 'active') {
+    if ($acct['member_status'] === 'inactive') {
         $errors[] = 'The member is inactive.';
     }
+    $passbook = input('passbook_presented') === '1';
 
     if ($errors) {
         flash_errors($errors);
@@ -44,7 +45,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $pdo = db();
         try {
             $pdo->beginTransaction();
-            $res = savings_entry($id, $type, $amount, $type === 'deposit' ? 1 : -1, $date, $remarks);
+            $res = savings_entry($id, $type, $amount, $type === 'deposit' ? 1 : -1, $date, $remarks, null, true, $passbook);
             audit_log($type, 'savings_transactions', $res['txn_id'], ucfirst($type) . ' ' . money($amount) . ' ' . $res['or_no'] . ' · ' . $acct['member_no']);
             $pdo->commit();
             flash('success', ucfirst($type) . ' of ' . money($amount) . ' posted. OR ' . $res['or_no'] . '. New balance ' . money($res['balance']) . '.');
@@ -89,9 +90,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
               <input type="date" class="form-control form-control-lg" id="txn_date" name="txn_date" required max="<?= e(date('Y-m-d')) ?>" value="<?= e(old('txn_date', date('Y-m-d'))) ?>">
             </div>
           </div>
-          <div class="form-group mb-0">
+          <div class="form-group">
             <label for="remarks">Remarks</label>
             <input type="text" class="form-control" id="remarks" name="remarks" maxlength="255" value="<?= e(old('remarks')) ?>" placeholder="Optional (e.g., salary deduction for October)">
+          </div>
+          <div class="custom-control custom-checkbox">
+            <input type="checkbox" class="custom-control-input" id="passbook_presented" name="passbook_presented" value="1" <?= old('passbook_presented') === '1' ? 'checked' : '' ?>>
+            <label class="custom-control-label" for="passbook_presented">Member presented the passbook (required for withdrawals)</label>
           </div>
         </div>
         <div class="card-footer bg-white d-flex">
@@ -106,7 +111,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       <div class="card-body">
         <div class="kpi-label">Current balance</div>
         <div class="kpi-value"><?= e(money($acct['balance'])) ?></div>
-        <div class="small text-muted mt-2">A receipt number is assigned automatically when you post.</div>
+        <?php $lim = savings_limits($acct['account_type']); ?>
+        <ul class="small text-muted pl-3 mt-2 mb-0">
+          <?php if ($lim['maintaining'] > 0): ?>
+            <li>Maintaining balance <?= e(money($lim['maintaining'])) ?><?= $lim['full_withdrawal_allowed'] ? ' (or withdraw in full)' : '' ?>.</li>
+            <li>Withdrawable now: <strong><?= e(money(max(0, (float) $acct['balance'] - $lim['maintaining']))) ?></strong></li>
+          <?php endif; ?>
+          <?php if ((float) $acct['balance'] == 0.0 && $lim['opening'] > 0): ?><li>Opening deposit at least <?= e(money($lim['opening'])) ?>.</li><?php endif; ?>
+          <?php if ($acct['account_type'] === 'capital_build_up'): ?><li>Expected contribution <?= e(money(setting('cbu_monthly'))) ?> per month.</li><?php endif; ?>
+          <li>Deposits are fine without the passbook; ask the member to have it updated.</li>
+          <li>A receipt number is assigned automatically.</li>
+        </ul>
       </div>
     </div>
   </div>

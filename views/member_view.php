@@ -11,8 +11,76 @@ if (!$m) {
     return;
 }
 
+// Membership requirements (questionnaire 2.1–2.2): PMES, signature specimen, TIN, membership fee, initial share capital
+$stmt = db()->prepare("SELECT COALESCE(MAX(balance), 0) FROM savings_accounts WHERE member_id = :id AND account_type = 'share_capital'");
+$stmt->execute([':id' => $id]);
+$shareBal = (float) $stmt->fetchColumn();
+$minShare = (float) setting('min_share_capital');
+$requirements = [
+    ['Pre-membership seminar (PMES)', (bool) $m['pmes_date'], $m['pmes_date'] ? 'Attended ' . fmt_date($m['pmes_date']) : 'Not recorded'],
+    ['Signature specimen card', (int) $m['signature_on_file'] === 1, (int) $m['signature_on_file'] === 1 ? 'On file' : 'Not yet received'],
+    ['TIN', (bool) $m['tin'], $m['tin'] ?: 'Missing'],
+    ['Membership fee', $m['membership_fee_or'] !== null, $m['membership_fee_or'] ? money($m['membership_fee']) . ' · OR ' . $m['membership_fee_or'] : 'Not yet paid'],
+    ['Initial share capital', $shareBal >= $minShare, money($shareBal) . ' of ' . money($minShare)],
+];
+$requirementsMet = !in_array(false, array_column($requirements, 1), true);
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $action = input('action');
+    if ($action === 'approve_membership') {
+        require_permission('members', 'approve');
+        if (!$requirementsMet) {
+            flash('error', 'All membership requirements must be complete before approval.');
+        } else {
+            try {
+                $upd = db()->prepare("UPDATE members SET status = 'active', approved_by = :u, date_approved = CURDATE(), date_of_membership = CURDATE(), updated_by = :u2
+                                       WHERE member_id = :id AND status = 'applicant'");
+                $upd->execute([':u' => current_user_id(), ':u2' => current_user_id(), ':id' => $id]);
+                if ($upd->rowCount() === 1) {
+                    audit_log('approve', 'members', $id, 'Approved membership of ' . $m['member_no']);
+                    flash('success', 'Membership approved. ' . $m['first_name'] . ' is now an active member.');
+                }
+            } catch (Throwable $e) {
+                db_failure($e);
+            }
+        }
+        redirect('dashboard.php?page=member_view&id=' . $id);
+    }
+    if ($action === 'record_fee') {
+        require_permission('members', 'fee');
+        $errors = [];
+        $fee = money_in($errors, 'membership_fee', 'Membership fee', true, 1.00, 100000.00);
+        if ($errors) {
+            flash_errors($errors);
+        } else {
+            $pdo = db();
+            try {
+                $pdo->beginTransaction();
+                $orNo = next_or_no();
+                $upd = $pdo->prepare('UPDATE members SET membership_fee = :f, membership_fee_or = :or, membership_fee_date = CURDATE(), membership_fee_by = :u
+                                       WHERE member_id = :id AND membership_fee_or IS NULL');
+                $upd->execute([':f' => $fee, ':or' => $orNo, ':u' => current_user_id(), ':id' => $id]);
+                if ($upd->rowCount() !== 1) {
+                    throw new DomainException('The membership fee has already been recorded.');
+                }
+                audit_log('membership_fee', 'members', $id, 'Membership fee ' . money($fee) . " OR $orNo · " . $m['member_no']);
+                $pdo->commit();
+                flash('success', 'Membership fee received. OR ' . $orNo . '.');
+                redirect('dashboard.php?page=receipt&fee=' . $id);
+            } catch (DomainException $e) {
+                $pdo->rollBack();
+                flash('error', $e->getMessage());
+            } catch (Throwable $e) {
+                db_failure($e);
+            }
+        }
+        redirect('dashboard.php?page=member_view&id=' . $id);
+    }
+}
+
 $title = $m['last_name'] . ', ' . $m['first_name'] . ($m['middle_name'] ? ' ' . $m['middle_name'] : '');
-$subtitle = $m['member_no'] . ' · ' . ($m['member_type'] === 'school' ? 'School-based' : 'Outside the school') . ' · member since ' . fmt_date($m['date_of_membership']);
+$subtitle = $m['member_no'] . ' · ' . ($m['member_type'] === 'school' ? 'School-based' : 'Outside the school') . ' · '
+    . ($m['status'] === 'applicant' ? 'applied ' : 'member since ') . fmt_date($m['date_of_membership']);
 $buttons = [];
 if (can('members', 'update')) {
     $buttons[] = '<a href="dashboard.php?page=member_form&id=' . $id . '" class="btn btn-outline-primary"><i class="fas fa-pen mr-1"></i> Edit profile</a>';
@@ -50,6 +118,45 @@ $elig = member_eligibility($id);
 $totalSavings = array_sum(array_map(fn ($a) => $a['account_type'] !== 'share_capital' ? (float) $a['balance'] : 0, $accounts));
 $shareCapital = array_sum(array_map(fn ($a) => $a['account_type'] === 'share_capital' ? (float) $a['balance'] : 0, $accounts));
 ?>
+<?php if ($m['status'] === 'applicant'): ?>
+  <div class="card card-warning card-outline">
+    <div class="card-header"><h3 class="card-title"><i class="fas fa-user-clock mr-2"></i>Membership application — waiting for approval</h3></div>
+    <div class="card-body">
+      <div class="row">
+        <div class="col-lg-7">
+          <ul class="check-list">
+            <?php foreach ($requirements as [$label, $ok, $detail]): ?>
+              <li><i class="fas <?= $ok ? 'fa-check-circle ok' : 'fa-times-circle bad' ?> mt-1" aria-hidden="true"></i>
+                <div><strong><?= e($label) ?></strong><span class="sr-only"> (<?= $ok ? 'complete' : 'missing' ?>)</span><div class="small text-muted"><?= e($detail) ?></div></div></li>
+            <?php endforeach; ?>
+          </ul>
+        </div>
+        <div class="col-lg-5">
+          <p class="small text-muted">Applied <?= e(fmt_date($m['date_of_membership'])) ?> (<?= (int) (new DateTime($m['date_of_membership']))->diff(new DateTime())->days ?> days ago). FFMPC approves new members about one month after application. An applicant cannot borrow until approved.</p>
+          <?php if (can('members', 'fee') && $m['membership_fee_or'] === null): ?>
+            <form method="post" action="" class="ml-form mb-3">
+              <?= csrf_field() ?>
+              <input type="hidden" name="action" value="record_fee">
+              <label for="membership_fee" class="small font-weight-bold">Receive membership fee (₱)</label>
+              <div class="input-group">
+                <input type="text" inputmode="decimal" id="membership_fee" name="membership_fee" class="form-control" required>
+                <div class="input-group-append"><button type="submit" class="btn btn-primary">Receive &amp; issue OR</button></div>
+              </div>
+            </form>
+          <?php endif; ?>
+          <?php if (can('members', 'approve')): ?>
+            <form method="post" action="" class="ml-form" data-confirm="Approve this membership application?" data-confirm-button="Approve membership">
+              <?= csrf_field() ?>
+              <input type="hidden" name="action" value="approve_membership">
+              <button type="submit" class="btn btn-success btn-block" <?= $requirementsMet ? '' : 'disabled' ?>><i class="fas fa-user-check mr-1"></i> Approve membership</button>
+              <?php if (!$requirementsMet): ?><small class="form-text text-muted">Complete every requirement first.</small><?php endif; ?>
+            </form>
+          <?php endif; ?>
+        </div>
+      </div>
+    </div>
+  </div>
+<?php endif; ?>
 <div class="card">
   <div class="card-body">
     <div class="stat-strip">
@@ -117,14 +224,17 @@ $shareCapital = array_sum(array_map(fn ($a) => $a['account_type'] === 'share_cap
               <dt>TIN</dt><dd><?= e($m['tin'] ?: '—') ?></dd>
               <dt>SSS</dt><dd><?= e($m['sss'] ?: '—') ?></dd>
               <dt>Beneficiaries</dt><dd><?= $m['beneficiaries'] ? nl2br(e($m['beneficiaries'])) : '—' ?></dd>
-              <dt>Member since</dt><dd><?= e(fmt_date($m['date_of_membership'])) ?></dd>
+              <dt><?= $m['status'] === 'applicant' ? 'Applied' : 'Member since' ?></dt><dd><?= e(fmt_date($m['date_of_membership'])) ?></dd>
+              <dt>PMES attended</dt><dd><?= e(fmt_date($m['pmes_date'])) ?></dd>
+              <dt>Signature specimen</dt><dd><?= (int) $m['signature_on_file'] === 1 ? 'On file' : 'Not on file' ?></dd>
+              <dt>Membership fee</dt><dd><?= $m['membership_fee_or'] ? e(money($m['membership_fee'])) . ' · OR ' . e($m['membership_fee_or']) . ' · ' . e(fmt_date($m['membership_fee_date'])) : 'Not paid' ?></dd>
             </dl>
           </div>
         </div>
       </div>
 
       <div class="tab-pane fade" id="tab-accounts" role="tabpanel">
-        <?php if (can('savings', 'create') && count($accounts) < 4 && $m['status'] === 'active'): ?>
+        <?php if (can('savings', 'create') && count($accounts) < 4 && $m['status'] !== 'inactive'): ?>
           <a href="dashboard.php?page=savings&member_id=<?= $id ?>" class="btn btn-sm btn-outline-primary mb-3"><i class="fas fa-plus mr-1"></i> Open another account</a>
         <?php endif; ?>
         <div class="table-responsive">

@@ -27,7 +27,9 @@ const RBAC = [
     'members'       => ['view' => ALL_ROLES,
                         'create' => ['manager', 'cashier'],
                         'update' => ['manager', 'cashier', 'loan_officer'],
-                        'delete' => ['manager']],
+                        'delete' => ['manager'],
+                        'approve' => ['manager'],   // approves a membership application
+                        'fee'     => ['cashier']],  // collects the membership fee (issues an OR)
     'savings'       => ['view' => ALL_ROLES,
                         'create' => ['manager', 'cashier'],
                         'update' => ['manager', 'bookkeeper'],
@@ -50,6 +52,7 @@ const RBAC = [
     'report_aging'  => ['view' => ['manager', 'loan_officer', 'auditor']],
     'report_savings'=> ['view' => ['manager', 'bookkeeper', 'auditor']],
     'report_share'  => ['view' => ['manager', 'bookkeeper', 'auditor']],
+    'report_salary' => ['view' => ['manager', 'bookkeeper', 'auditor']],  // the bookkeeper prepares the deduction list (6.6)
     'audit'         => ['view' => ['manager', 'bookkeeper', 'auditor']],
 ];
 

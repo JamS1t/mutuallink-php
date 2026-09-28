@@ -1,6 +1,6 @@
 -- ============================================================
 -- MutualLink: Integrated Loan, Balance, and Savings Management System
--- Franciscan Friends Multipurpose Cooperative (FFMC)
+-- Franciscan Friends Multi-Purpose Cooperative (FFMPC)
 -- Target: MySQL 8.3 (WampServer 3.3.5). Also runs on MariaDB 10.4+.
 -- Import as root (phpMyAdmin > Import, or: mysql -u root -p < mutuallink.sql)
 -- ============================================================
@@ -59,19 +59,34 @@ CREATE TABLE members (
   spouse_name         VARCHAR(150) NULL,
   date_of_membership  DATE NOT NULL,
   member_type         ENUM('school','outside') NOT NULL DEFAULT 'school',
-  status              ENUM('active','inactive') NOT NULL DEFAULT 'active',
+  -- Membership steps (questionnaire 2.1–2.3): PMES → form → fee + common shares → approval
+  pmes_date           DATE NULL,
+  signature_on_file   TINYINT(1) NOT NULL DEFAULT 0,
+  membership_fee      DECIMAL(12,2) NULL,
+  membership_fee_or   VARCHAR(20) NULL,
+  membership_fee_date DATE NULL,
+  membership_fee_by   INT UNSIGNED NULL,
+  status              ENUM('applicant','active','inactive') NOT NULL DEFAULT 'applicant',
+  approved_by         INT UNSIGNED NULL,
+  date_approved       DATE NULL,
   created_by          INT UNSIGNED NULL,
   created_at          DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_by          INT UNSIGNED NULL,
   updated_at          DATETIME NULL ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (member_id),
   UNIQUE KEY uq_members_member_no (member_no),
+  UNIQUE KEY uq_members_fee_or (membership_fee_or),
   KEY idx_members_name (last_name, first_name),
   KEY idx_members_status (status),
+  KEY idx_members_fee_date (membership_fee_date),
   KEY idx_members_created_by (created_by),
   KEY idx_members_updated_by (updated_by),
+  KEY idx_members_approved_by (approved_by),
+  KEY idx_members_fee_by (membership_fee_by),
   CONSTRAINT fk_members_created_by FOREIGN KEY (created_by) REFERENCES users (user_id),
   CONSTRAINT fk_members_updated_by FOREIGN KEY (updated_by) REFERENCES users (user_id),
+  CONSTRAINT fk_members_approved_by FOREIGN KEY (approved_by) REFERENCES users (user_id),
+  CONSTRAINT fk_members_fee_by FOREIGN KEY (membership_fee_by) REFERENCES users (user_id),
   CONSTRAINT chk_members_income CHECK (monthly_income IS NULL OR monthly_income >= 0)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
@@ -105,6 +120,7 @@ CREATE TABLE savings_transactions (
   or_no            VARCHAR(20) NULL,
   posted_by        INT UNSIGNED NOT NULL,
   reverses_txn_id  INT UNSIGNED NULL,
+  passbook_presented TINYINT(1) NOT NULL DEFAULT 0,  -- withdrawals require the passbook (questionnaire 3.6)
   remarks          VARCHAR(255) NULL,
   created_at       DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (txn_id),
@@ -130,6 +146,8 @@ CREATE TABLE loan_products (
   term_months    TINYINT UNSIGNED NOT NULL,
   interest_rate  DECIMAL(5,2) NOT NULL DEFAULT 3.00,
   penalty_rate   DECIMAL(5,2) NOT NULL DEFAULT 4.00,
+  -- What limits the loanable amount: a fixed maximum, the collateral's appraised value, or the member's net pay
+  loanable_basis ENUM('fixed','collateral','net_pay') NOT NULL DEFAULT 'fixed',
   status         ENUM('active','inactive') NOT NULL DEFAULT 'active',
   PRIMARY KEY (product_id),
   UNIQUE KEY uq_products_name (product_name),
@@ -151,9 +169,18 @@ CREATE TABLE loans (
   date_released        DATE NULL,
   co_maker             VARCHAR(150) NOT NULL,
   collateral           VARCHAR(255) NULL,
+  collateral_type      ENUM('none','real_estate','vehicle','other') NOT NULL DEFAULT 'none',
+  collateral_value     DECIMAL(14,2) NULL,
+  net_pay              DECIMAL(12,2) NULL,
+  repayment_mode       ENUM('cash','salary_deduction','bank_deposit','field_collection','e_wallet') NOT NULL DEFAULT 'cash',
   outstanding_balance  DECIMAL(12,2) NOT NULL DEFAULT 0.00,
   total_interest       DECIMAL(12,2) NOT NULL DEFAULT 0.00,
   net_proceeds         DECIMAL(12,2) NULL,
+  release_mode         ENUM('cash','check') NULL,
+  check_no             VARCHAR(30) NULL,
+  -- Charges collected after the term was surpassed (3% interest + 4% penalty per month on the unpaid balance)
+  pd_interest_paid     DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+  pd_penalty_paid      DECIMAL(12,2) NOT NULL DEFAULT 0.00,
   status               ENUM('pending','approved','rejected','released','paid','cancelled') NOT NULL DEFAULT 'pending',
   remarks              VARCHAR(255) NULL,
   created_by           INT UNSIGNED NOT NULL,
@@ -206,7 +233,7 @@ CREATE TABLE amortization_schedule (
 CREATE TABLE loan_deductions (
   deduction_id    INT UNSIGNED NOT NULL AUTO_INCREMENT,
   loan_id         INT UNSIGNED NOT NULL,
-  deduction_type  ENUM('service_fee','insurance','cbu_retention','previous_loan','notarial_fee') NOT NULL,
+  deduction_type  ENUM('service_fee','insurance','stockshare','notarial_fee','other_fee','previous_loan') NOT NULL,
   amount          DECIMAL(12,2) NOT NULL,
   ref_loan_id     INT UNSIGNED NULL,
   PRIMARY KEY (deduction_id),
@@ -218,7 +245,9 @@ CREATE TABLE loan_deductions (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ------------------------------------------------------------
--- payments: each recorded against the installment it settles
+-- payments: each recorded against the installment it settles.
+-- One official receipt can settle several installments (advance payment),
+-- so the same or_no appears once per installment it covers.
 -- ------------------------------------------------------------
 CREATE TABLE payments (
   payment_id         INT UNSIGNED NOT NULL AUTO_INCREMENT,
@@ -231,6 +260,7 @@ CREATE TABLE payments (
   principal_portion  DECIMAL(12,2) NOT NULL DEFAULT 0.00,
   interest_portion   DECIMAL(12,2) NOT NULL DEFAULT 0.00,
   penalty_portion    DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+  past_due_interest  DECIMAL(12,2) NOT NULL DEFAULT 0.00,  -- part of interest_portion charged after the term (3%)
   remaining_balance  DECIMAL(12,2) NOT NULL,
   status             ENUM('posted','void') NOT NULL DEFAULT 'posted',
   void_reason        VARCHAR(255) NULL,
@@ -239,7 +269,7 @@ CREATE TABLE payments (
   voided_at          DATETIME NULL,
   created_at         DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (payment_id),
-  UNIQUE KEY uq_payments_or (or_no),
+  UNIQUE KEY uq_payments_or_schedule (or_no, schedule_id),
   KEY idx_payments_loan_status (loan_id, status),
   KEY idx_payments_schedule (schedule_id),
   KEY idx_payments_date (payment_date),
@@ -327,28 +357,37 @@ SET FOREIGN_KEY_CHECKS = 1;
 -- (bcrypt, cost 12). Change these after the first login.
 -- ============================================================
 INSERT INTO users (user_id, username, email, password_hash, full_name, role, status) VALUES
-(1, 'manager',     'manager@ffmc.local',     '$2y$12$VC.F3smnNWB/eRMgM3KqouCHJmfQ5Y/yT/BZmptBaJ0RLFvqhKYMa', 'Maria Santos',    'manager',      'active'),
-(2, 'cashier',     'cashier@ffmc.local',     '$2y$12$VC.F3smnNWB/eRMgM3KqouCHJmfQ5Y/yT/BZmptBaJ0RLFvqhKYMa', 'Jose Reyes',      'cashier',      'active'),
-(3, 'loanofficer', 'loanofficer@ffmc.local', '$2y$12$VC.F3smnNWB/eRMgM3KqouCHJmfQ5Y/yT/BZmptBaJ0RLFvqhKYMa', 'Ana Dela Cruz',   'loan_officer', 'active'),
-(4, 'bookkeeper',  'bookkeeper@ffmc.local',  '$2y$12$VC.F3smnNWB/eRMgM3KqouCHJmfQ5Y/yT/BZmptBaJ0RLFvqhKYMa', 'Liza Villanueva', 'bookkeeper',   'active'),
-(5, 'auditor',     'auditor@ffmc.local',     '$2y$12$VC.F3smnNWB/eRMgM3KqouCHJmfQ5Y/yT/BZmptBaJ0RLFvqhKYMa', 'Ramon Bautista',  'auditor',      'active');
+(1, 'manager',     'manager@ffmpc.local',     '$2y$12$VC.F3smnNWB/eRMgM3KqouCHJmfQ5Y/yT/BZmptBaJ0RLFvqhKYMa', 'Maria Santos',    'manager',      'active'),
+(2, 'cashier',     'cashier@ffmpc.local',     '$2y$12$VC.F3smnNWB/eRMgM3KqouCHJmfQ5Y/yT/BZmptBaJ0RLFvqhKYMa', 'Jose Reyes',      'cashier',      'active'),
+(3, 'loanofficer', 'loanofficer@ffmpc.local', '$2y$12$VC.F3smnNWB/eRMgM3KqouCHJmfQ5Y/yT/BZmptBaJ0RLFvqhKYMa', 'Ana Dela Cruz',   'loan_officer', 'active'),
+(4, 'bookkeeper',  'bookkeeper@ffmpc.local',  '$2y$12$VC.F3smnNWB/eRMgM3KqouCHJmfQ5Y/yT/BZmptBaJ0RLFvqhKYMa', 'Liza Villanueva', 'bookkeeper',   'active'),
+(5, 'auditor',     'auditor@ffmpc.local',     '$2y$12$VC.F3smnNWB/eRMgM3KqouCHJmfQ5Y/yT/BZmptBaJ0RLFvqhKYMa', 'Ramon Bautista',  'auditor',      'active');
 
-INSERT INTO loan_products (product_name, min_amount, max_amount, term_months, interest_rate, penalty_rate) VALUES
-('Regular Loan',   5000.00, 100000.00, 24, 3.00, 4.00),
-('Salary Loan',    2000.00,  30000.00, 12, 3.00, 4.00),
-('Emergency Loan', 1000.00,  10000.00,  6, 3.00, 4.00);
+-- Products per questionnaire 4.1: Regular (depends on collateral, up to 1 yr), Salary (depends on net pay,
+-- up to 1 yr), Emergency (₱3,000, 3 months). All 3% per month diminishing; 4% penalty after the term.
+INSERT INTO loan_products (product_name, min_amount, max_amount, term_months, interest_rate, penalty_rate, loanable_basis) VALUES
+('Regular Loan',   5000.00, 1000000.00, 12, 3.00, 4.00, 'collateral'),
+('Salary Loan',    1000.00,  100000.00, 12, 3.00, 4.00, 'net_pay'),
+('Emergency Loan', 1000.00,    3000.00,  3, 3.00, 4.00, 'fixed');
 
--- Placeholder rates: confirm with the FFMC bookkeeper.
+-- Deduction rates are taken from FFMPC's own sample loan computation (₱26,000 loan:
+-- service fee 780.00, insurance 145.60, stockshare 520.00, notarial 200.00, printing 30.00).
+-- Account minimums are from questionnaire 3.1.
 INSERT INTO settings (setting_key, setting_value, label) VALUES
-('service_fee_pct',    '2.00',   'Service fee (% of principal)'),
-('insurance_pct',      '1.00',   'Insurance (% of principal)'),
-('cbu_retention_pct',  '2.00',   'Capital build-up retention (% of principal)'),
-('notarial_fee',       '100.00', 'Notarial fee (fixed amount)'),
-('min_share_capital',  '1000.00','Minimum share capital for loan eligibility'),
-('reminder_lead_days', '3',      'Send upcoming-payment reminders this many days before due'),
-('aging_brackets',     '30,60,90,180,365', 'Aging bracket upper limits in days (comma-separated)'),
-('or_counter',         '0',      'Last official receipt number issued'),
-('member_counter',     '0',      'Last member number issued');
+('service_fee_pct',        '3.00',     'Service fee (% of principal)'),
+('insurance_pct',          '0.56',     'Loan insurance (% of principal)'),
+('stockshare_pct',         '2.00',     'Stockshare retention, credited to share capital (% of principal)'),
+('notarial_fee',           '200.00',   'Notarial fee (fixed amount)'),
+('other_fee',              '30.00',    'Other fees — printing (fixed amount)'),
+('collateral_loanable_pct','30.00',    'Loanable amount as % of the collateral''s appraised value'),
+('min_share_capital',      '2000.00',  'Required share capital for membership'),
+('min_regular_savings',    '500.00',   'Maintaining balance of regular savings'),
+('min_time_deposit',       '10000.00', 'Minimum time deposit'),
+('cbu_monthly',            '100.00',   'Capital build-up contribution per month'),
+('reminder_lead_days',     '3',        'Send upcoming-payment reminders this many days before due'),
+('aging_brackets',         '30,60,90,180,365', 'Aging bracket upper limits in days (comma-separated)'),
+('or_counter',             '0',        'Last official receipt number issued (Manager controls the OR series)'),
+('member_counter',         '0',        'Last member number issued');
 
 -- ============================================================
 -- Least-privilege application account (Database Security topic).

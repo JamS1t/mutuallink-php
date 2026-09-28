@@ -1,11 +1,11 @@
 /* ==========================================================
    MutualLink theme on top of AdminLTE 3.2 / Bootstrap 4.6
-   Cooperative green + warm Franciscan brown accent.
+   Logo teal (#1f6b81) + warm Franciscan brown accent.
    ========================================================== */
 :root {
-  --ml-green: #1f6f50;
-  --ml-green-dark: #17553d;
-  --ml-green-soft: #e8f3ee;
+  --ml-green: #1f6b81;   /* logo teal */
+  --ml-green-dark: #175365;
+  --ml-green-soft: #e6f1f4;
   --ml-brown: #8a5a2b;
   --ml-ink: #1f2933;
   --ml-muted: #6b7280;
@@ -51,7 +51,7 @@ body {
 }
 .sidebar-light-success .nav-sidebar > .nav-item > .nav-link.active {
   background: var(--ml-green) !important; color: #fff !important;
-  box-shadow: 0 2px 6px rgba(31, 111, 80, .25);
+  box-shadow: 0 2px 6px rgba(31, 107, 129, .25);
 }
 .nav-sidebar .nav-link:focus-visible { outline: 2px solid var(--ml-green); outline-offset: -2px; }
 
@@ -75,7 +75,7 @@ a:hover { color: var(--ml-green-dark); }
 .text-primary { color: var(--ml-green) !important; }
 .badge { font-weight: 600; padding: .35em .6em; }
 .badge-light { background: #eef0f2; color: #374151; }
-.form-control:focus, .custom-select:focus { border-color: var(--ml-green); box-shadow: 0 0 0 .2rem rgba(31, 111, 80, .15); }
+.form-control:focus, .custom-select:focus { border-color: var(--ml-green); box-shadow: 0 0 0 .2rem rgba(31, 107, 129, .15); }
 .page-item.active .page-link { background: var(--ml-green); border-color: var(--ml-green); }
 
 /* ---------- KPI tiles ---------- */
@@ -121,7 +121,7 @@ a:hover { color: var(--ml-green-dark); }
 .check-list .bad { color: #b42318; }
 
 /* ---------- Login ---------- */
-.login-page { background: linear-gradient(135deg, var(--ml-green) 0%, var(--ml-green-dark) 55%, #0f3b2a 100%); }
+.login-page { background: linear-gradient(135deg, var(--ml-green) 0%, var(--ml-green-dark) 55%, #0f3440 100%); }
 .login-box { width: 380px; }
 .login-brand { color: #fff; text-align: center; margin-bottom: 1.2rem; }
 .login-brand .brand-mark { width: 54px; height: 54px; font-size: 1.4rem; border-radius: 14px; margin-bottom: .6rem; }
@@ -160,3 +160,12 @@ a:hover { color: var(--ml-green-dark); }
 
 /* ---------- Utilities missing from Bootstrap 4 ---------- */
 .opacity-50 { opacity: .55; }
+
+/* ---------- Logo ---------- */
+.brand-link .brand-logo { width: 34px; height: 34px; flex: none; margin-left: .2rem; }
+.login-logo-badge {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 96px; height: 96px; border-radius: 24px; background: #fff; margin-bottom: .7rem;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, .18);
+}
+.print-head img { display: block; margin: 0 auto; }

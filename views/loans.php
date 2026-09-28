@@ -41,7 +41,7 @@ $today = date('Y-m-d');
     </ul>
   </div>
   <div class="card-body">
-    <table class="table table-hover js-datatable" data-export="true" data-title="FFMC Loans" data-order='[[0,"desc"]]'>
+    <table class="table table-hover js-datatable" data-export="true" data-title="FFMPC Loans" data-order='[[0,"desc"]]'>
       <thead>
         <tr><th>Loan</th><th>Member</th><th>Product</th><th class="num">Principal</th><th>Term</th><th>Applied</th><th>Next due</th><th class="num">Outstanding</th><th>Status</th></tr>
       </thead>

@@ -35,7 +35,8 @@ $totInterest = array_sum(array_column($rows, 'interest_due'));
 </div>
 <div class="print-doc">
   <div class="print-head">
-    <h2>FRANCISCAN FRIENDS MULTIPURPOSE COOPERATIVE</h2>
+    <img src="dist/img/logo-96.png" alt="" width="40" height="40" class="mb-1">
+    <h2>FRANCISCAN FRIENDS MULTI-PURPOSE COOPERATIVE</h2>
     <p>Andres Bonifacio, Zone 1, Baybay City, Leyte</p>
     <p class="mt-2 font-weight-bold">LOAN AMORTIZATION SCHEDULE</p>
   </div>
@@ -54,7 +55,7 @@ $totInterest = array_sum(array_column($rows, 'interest_due'));
     </div>
   </div>
   <table class="table table-sm table-bordered">
-    <thead class="thead-light"><tr><th>#</th><th>Due date</th><th class="num">Principal</th><th class="num">Interest</th><th class="num">Amount due</th><th class="num">Balance</th></tr></thead>
+    <thead class="thead-light"><tr><th>#</th><th>Due date</th><th class="num">Principal</th><th class="num">Interest</th><th class="num">Amount due</th><th class="num">Semi-monthly</th><th class="num">Balance</th></tr></thead>
     <tbody>
     <?php foreach ($rows as $r): ?>
       <tr>
@@ -63,11 +64,12 @@ $totInterest = array_sum(array_column($rows, 'interest_due'));
         <td class="num"><?= e(number_format((float) $r['principal_due'], 2)) ?></td>
         <td class="num"><?= e(number_format((float) $r['interest_due'], 2)) ?></td>
         <td class="num font-weight-bold"><?= e(number_format((float) $r['total_due'], 2)) ?></td>
+        <td class="num"><?= e(number_format(semi_monthly((float) $r['total_due']), 2)) ?></td>
         <td class="num"><?= e(number_format((float) $r['balance'], 2)) ?></td>
       </tr>
     <?php endforeach; ?>
     </tbody>
-    <tfoot><tr class="font-weight-bold"><td colspan="2">Total</td><td class="num"><?= e(number_format($totPrincipal, 2)) ?></td><td class="num"><?= e(number_format($totInterest, 2)) ?></td><td class="num"><?= e(number_format($totPrincipal + $totInterest, 2)) ?></td><td></td></tr></tfoot>
+    <tfoot><tr class="font-weight-bold"><td colspan="2">Total</td><td class="num"><?= e(number_format($totPrincipal, 2)) ?></td><td class="num"><?= e(number_format($totInterest, 2)) ?></td><td class="num"><?= e(number_format($totPrincipal + $totInterest, 2)) ?></td><td></td><td></td></tr></tfoot>
   </table>
   <div class="row small">
     <div class="col-6">
@@ -78,7 +80,7 @@ $totInterest = array_sum(array_column($rows, 'interest_due'));
       </table>
     </div>
     <div class="col-6">
-      <p class="mb-1">A penalty of <?= e($loan['penalty_rate']) ?>% per month applies to any amount unpaid after its due date. Payments are applied to penalty, then interest, then principal.</p>
+      <p class="mb-1">If the loan is not fully paid when the term ends, the unpaid balance is charged <?= e($loan['interest_rate']) ?>% interest plus a <?= e($loan['penalty_rate']) ?>% penalty per month. Payments are applied to penalty, then interest, then principal. Advance or early payment has no rebate. Released in <?= e($loan['release_mode'] ?? 'cash') ?><?= $loan['check_no'] ? ' (check no. ' . e($loan['check_no']) . ')' : '' ?>.</p>
     </div>
   </div>
   <div class="row small mt-5 text-center">

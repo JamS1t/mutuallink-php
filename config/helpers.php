@@ -16,6 +16,36 @@ const ACCOUNT_TYPES = [
 // Only these accounts allow withdrawals; share capital and CBU are withdrawal-locked.
 const WITHDRAWABLE = ['regular_savings', 'time_deposit'];
 
+const LOANABLE_BASIS = ['fixed' => 'Fixed minimum and maximum', 'collateral' => 'Appraised value of collateral', 'net_pay' => "Member's net pay"];
+
+const COLLATERAL_TYPES = ['none' => 'None', 'real_estate' => 'Real estate (land title)', 'vehicle' => 'Vehicle (OR/CR)', 'other' => 'Other'];
+
+// How members pay their loans (questionnaire 6.1)
+const REPAYMENT_MODES = ['cash' => 'Cash over the counter', 'salary_deduction' => 'Salary deduction', 'bank_deposit' => 'Bank deposit',
+                         'field_collection' => 'Collector / field collection', 'e_wallet' => 'GCash / e-wallet'];
+
+/** Regular Loan limit: a share of the collateral's appraised value (₱3,000,000 title → ₱900,000 at 30%). */
+function loanable_from_collateral(float $appraisedValue): float
+{
+    return money_round($appraisedValue * (float) setting('collateral_loanable_pct') / 100);
+}
+
+/**
+ * FFMPC account minimums (questionnaire 3.1, 3.3):
+ * regular savings keeps a ₱500 maintaining balance; a time deposit starts at ₱10,000 and is
+ * either kept at or above that or withdrawn in full.
+ *
+ * @return array{opening: float, maintaining: float, full_withdrawal_allowed: bool}
+ */
+function savings_limits(string $accountType): array
+{
+    return match ($accountType) {
+        'regular_savings' => ['opening' => (float) setting('min_regular_savings'), 'maintaining' => (float) setting('min_regular_savings'), 'full_withdrawal_allowed' => false],
+        'time_deposit'    => ['opening' => (float) setting('min_time_deposit'), 'maintaining' => (float) setting('min_time_deposit'), 'full_withdrawal_allowed' => true],
+        default           => ['opening' => 0.0, 'maintaining' => 0.0, 'full_withdrawal_allowed' => false],
+    };
+}
+
 /* ---------------- Output ---------------- */
 
 /** Context-aware output escaping for HTML text and attributes. */
@@ -44,7 +74,7 @@ function fmt_date(?string $date, string $format = 'M d, Y'): string
 function badge(?string $status): string
 {
     $map = [
-        'active' => 'success', 'inactive' => 'secondary', 'closed' => 'secondary',
+        'active' => 'success', 'inactive' => 'secondary', 'closed' => 'secondary', 'applicant' => 'warning',
         'pending' => 'warning', 'approved' => 'info', 'rejected' => 'danger', 'released' => 'primary',
         'paid' => 'success', 'cancelled' => 'secondary', 'unpaid' => 'light', 'partial' => 'warning',
         'posted' => 'success', 'void' => 'danger', 'sent' => 'success', 'failed' => 'danger',
@@ -203,6 +233,18 @@ function enum_in(array &$errors, string $key, string $label, array $allowed): st
     return $v;
 }
 
+/** Current deduction rates from Settings, in the shape compute_deductions() expects. */
+function deduction_rates(): array
+{
+    return [
+        'service_fee_pct' => (float) setting('service_fee_pct'),
+        'insurance_pct'   => (float) setting('insurance_pct'),
+        'stockshare_pct'  => (float) setting('stockshare_pct'),
+        'notarial_fee'    => (float) setting('notarial_fee'),
+        'other_fee'       => (float) setting('other_fee'),
+    ];
+}
+
 /** Positive integer ID from the query string (0 when invalid). */
 function get_id(string $key = 'id'): int
 {
@@ -259,14 +301,20 @@ function next_counter(string $key): int
     return $next;
 }
 
+/** Plain numbered OR series like the cooperative's receipt booklet (e.g. 025952). */
 function next_or_no(): string
 {
-    return 'OR-' . date('Y') . '-' . str_pad((string) next_counter('or_counter'), 6, '0', STR_PAD_LEFT);
+    return format_or((int) next_counter('or_counter'));
+}
+
+function format_or(int $n): string
+{
+    return str_pad((string) $n, 6, '0', STR_PAD_LEFT);
 }
 
 function next_member_no(): string
 {
-    return 'FFMC-' . date('Y') . '-' . str_pad((string) next_counter('member_counter'), 4, '0', STR_PAD_LEFT);
+    return 'FFMPC-' . date('Y') . '-' . str_pad((string) next_counter('member_counter'), 4, '0', STR_PAD_LEFT);
 }
 
 /** Records who did what; the audit log is insert-only. */
@@ -316,10 +364,10 @@ function flash_errors(array $errors): void
  * @return array{txn_id:int, or_no:?string, balance:float}
  */
 function savings_entry(int $savingsId, string $txnType, float $amount, int $direction, string $date,
-                       ?string $remarks = null, ?int $reversesTxnId = null, bool $issueOr = true): array
+                       ?string $remarks = null, ?int $reversesTxnId = null, bool $issueOr = true, bool $passbookPresented = false): array
 {
     $pdo = db();
-    $stmt = $pdo->prepare('SELECT balance, status FROM savings_accounts WHERE savings_id = :id FOR UPDATE');
+    $stmt = $pdo->prepare('SELECT balance, status, account_type FROM savings_accounts WHERE savings_id = :id FOR UPDATE');
     $stmt->execute([':id' => $savingsId]);
     $acct = $stmt->fetch();
     if (!$acct) {
@@ -328,18 +376,39 @@ function savings_entry(int $savingsId, string $txnType, float $amount, int $dire
     if ($acct['status'] !== 'active') {
         throw new DomainException('This account is closed.');
     }
-    $newBalance = money_round((float) $acct['balance'] + $direction * $amount);
+    $balance = (float) $acct['balance'];
+    $newBalance = money_round($balance + $direction * $amount);
     if ($newBalance < 0) {
-        throw new DomainException('Insufficient balance: available ' . money($acct['balance']) . '.');
+        throw new DomainException('Insufficient balance: available ' . money($balance) . '.');
+    }
+
+    // Over-the-counter deposits and withdrawals follow FFMPC's account minimums
+    if ($issueOr) {
+        $lim = savings_limits($acct['account_type']);
+        $name = ACCOUNT_TYPES[$acct['account_type']];
+        if ($txnType === 'withdrawal') {
+            if (!$passbookPresented) {
+                throw new DomainException('A withdrawal needs the member\'s passbook. A lost passbook requires a notarized affidavit of loss.');
+            }
+            $fullClose = $lim['full_withdrawal_allowed'] && $newBalance == 0.0;
+            if (!$fullClose && $newBalance < $lim['maintaining']) {
+                throw new DomainException("$name must keep " . money($lim['maintaining']) . '. Up to '
+                    . money(max(0, $balance - $lim['maintaining'])) . ' can be withdrawn'
+                    . ($lim['full_withdrawal_allowed'] ? ', or the whole ' . money($balance) . '.' : '.'));
+            }
+        }
+        if ($txnType === 'deposit' && $balance == 0.0 && $amount < $lim['opening']) {
+            throw new DomainException("The opening deposit for $name must be at least " . money($lim['opening']) . '.');
+        }
     }
     $orNo = $issueOr ? next_or_no() : null;
 
     $pdo->prepare(
-        'INSERT INTO savings_transactions (savings_id, txn_date, txn_type, amount, running_balance, or_no, posted_by, reverses_txn_id, remarks)
-         VALUES (:s, :d, :t, :a, :rb, :or, :u, :rev, :rem)'
+        'INSERT INTO savings_transactions (savings_id, txn_date, txn_type, amount, running_balance, or_no, posted_by, reverses_txn_id, passbook_presented, remarks)
+         VALUES (:s, :d, :t, :a, :rb, :or, :u, :rev, :pb, :rem)'
     )->execute([
         ':s' => $savingsId, ':d' => $date, ':t' => $txnType, ':a' => $amount, ':rb' => $newBalance,
-        ':or' => $orNo, ':u' => current_user_id(), ':rev' => $reversesTxnId, ':rem' => $remarks,
+        ':or' => $orNo, ':u' => current_user_id(), ':rev' => $reversesTxnId, ':pb' => $passbookPresented ? 1 : 0, ':rem' => $remarks,
     ]);
     $txnId = (int) $pdo->lastInsertId();
 
@@ -374,28 +443,33 @@ function member_eligibility(int $memberId): array
     if (!$d) {
         return ['items' => [], 'data' => []];
     }
+    // FFMPC's eligibility rules (questionnaire 4.2): good payment record, a co-maker, and
+    // collateral for members from outside the school. Share capital is shown for information.
     $minShare = (float) setting('min_share_capital');
     $items = [];
-    $items[] = $d['status'] === 'active'
-        ? ['ok', 'Active membership', 'Member is in good standing.']
-        : ['bad', 'Inactive membership', 'Reactivate the member before any new loan.'];
-    $items[] = (float) $d['share_capital'] >= $minShare
-        ? ['ok', 'Share capital', money($d['share_capital']) . ' (minimum ' . money($minShare) . ')']
-        : ['bad', 'Share capital below minimum', money($d['share_capital']) . ' of the required ' . money($minShare)];
-    $items[] = (int) $d['past_due'] === 0
-        ? ['ok', 'No past-due installments', 'All installments due so far are paid.']
-        : ['bad', 'Has past-due installments', (int) $d['past_due'] . ' installment(s) are overdue.'];
+    $items[] = match ($d['status']) {
+        'active'    => ['ok', 'Active membership', 'Member is in good standing.'],
+        'applicant' => ['bad', 'Membership not yet approved', 'The Manager must approve the membership application before any loan.'],
+        default     => ['bad', 'Inactive membership', 'Reactivate the member before any new loan.'],
+    };
     $late = (int) $d['late_payments'];
-    $items[] = $late === 0
-        ? ['ok', 'Payment record', 'No late payments on record; ' . (int) $d['paid_loans'] . ' loan(s) fully paid.']
-        : [$late <= 2 ? 'warn' : 'bad', 'Payment record', "$late payment(s) were made after the due date."];
+    if ((int) $d['past_due'] > 0) {
+        $items[] = ['bad', 'Payment record: has past-due installments', (int) $d['past_due'] . ' installment(s) are overdue right now.'];
+    } elseif ($late > 0) {
+        $items[] = [$late <= 2 ? 'warn' : 'bad', 'Payment record', "$late payment(s) were made after the due date."];
+    } else {
+        $items[] = ['ok', 'Good payment record', 'No late or past-due payments; ' . (int) $d['paid_loans'] . ' loan(s) fully paid.'];
+    }
+    $items[] = ['info', 'Co-maker required', 'A co-maker must sign the application together with the borrower.'];
+    $items[] = $d['member_type'] === 'outside'
+        ? ['warn', 'Collateral required', 'Member is from outside the school: collateral or real estate must be submitted.']
+        : ['ok', 'Collateral', 'School-based member: collateral needed only for a Regular Loan.'];
     $items[] = (int) $d['active_loans'] === 0
         ? ['ok', 'Existing loans', 'No outstanding loan.']
         : ['warn', 'Existing loans', (int) $d['active_loans'] . ' released loan(s), ' . money($d['outstanding']) . ' outstanding. Can be offset as previous-loan deduction on renewal.'];
-    $items[] = $d['member_type'] === 'outside'
-        ? ['warn', 'Collateral required', 'Member is from outside the school: collateral must be submitted.']
-        : ['ok', 'Collateral', 'School-based member: collateral not required.'];
-    $items[] = ['info', 'Co-maker', 'A co-maker must sign the application.'];
+    $items[] = (float) $d['share_capital'] >= $minShare
+        ? ['ok', 'Share capital', money($d['share_capital']) . ' (required ' . money($minShare) . ')']
+        : ['warn', 'Share capital below the required amount', money($d['share_capital']) . ' of ' . money($minShare) . '.'];
 
     return ['items' => $items, 'data' => $d];
 }

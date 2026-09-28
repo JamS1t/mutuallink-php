@@ -52,7 +52,7 @@ $sum = fn (string $k) => array_sum(array_map(fn ($r) => (float) $r[$k], $posted)
 
 <div class="card">
   <div class="card-body">
-    <table class="table table-hover js-datatable" data-export="true" data-title="FFMC Loan Payments <?= e($from) ?> to <?= e($to) ?>" data-order='[[1,"desc"]]'>
+    <table class="table table-hover js-datatable" data-export="true" data-title="FFMPC Loan Payments <?= e($from) ?> to <?= e($to) ?>" data-order='[[1,"desc"]]'>
       <thead><tr><th>OR no.</th><th>Date</th><th>Member</th><th>Loan / inst.</th><th class="num">Amount</th><th class="num">Penalty</th><th class="num">Interest</th><th class="num">Principal</th><th>Mode</th><th>Cashier</th><th>Status</th></tr></thead>
       <tbody>
       <?php foreach ($rows as $r): ?>

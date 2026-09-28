@@ -10,7 +10,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && input('action') === 'open_account')
     $errors = [];
     $memberId = post_id('member_id');
     $type = enum_in($errors, 'account_type', 'account type', array_keys(ACCOUNT_TYPES));
-    $stmt = db()->prepare("SELECT member_no FROM members WHERE member_id = :id AND status = 'active'");
+    $stmt = db()->prepare("SELECT member_no FROM members WHERE member_id = :id AND status IN ('active','applicant')");
     $stmt->execute([':id' => $memberId]);
     $memberNo = $stmt->fetchColumn();
     if ($memberNo === false) {
@@ -42,7 +42,7 @@ $memberId = get_id('member_id');
 $selected = null;
 $openTypes = [];
 if ($memberId && can('savings', 'create')) {
-    $stmt = db()->prepare("SELECT member_id, member_no, last_name, first_name FROM members WHERE member_id = :id AND status = 'active'");
+    $stmt = db()->prepare("SELECT member_id, member_no, last_name, first_name FROM members WHERE member_id = :id AND status IN ('active','applicant')");
     $stmt->execute([':id' => $memberId]);
     $selected = $stmt->fetch();
     if ($selected) {
@@ -94,7 +94,7 @@ $totals = db()->query("SELECT account_type, COUNT(*) AS n, COALESCE(SUM(balance)
         <?php if ($type): ?><a href="dashboard.php?page=savings" class="ml-auto small">Show all types</a><?php endif; ?>
       </div>
       <div class="card-body">
-        <table class="table table-hover js-datatable" data-export="true" data-title="FFMC Savings Accounts" data-order='[[0,"asc"]]'>
+        <table class="table table-hover js-datatable" data-export="true" data-title="FFMPC Savings Accounts" data-order='[[0,"asc"]]'>
           <thead><tr><th>Member</th><th>Account</th><th>Opened</th><th>Status</th><th class="num">Balance</th><th class="no-sort text-right">Actions</th></tr></thead>
           <tbody>
           <?php foreach ($accounts as $a): ?>

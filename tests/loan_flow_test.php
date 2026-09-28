@@ -2,7 +2,8 @@
 declare(strict_types=1);
 
 /**
- * Database-level checks of the money paths: release → pay → void → renewal offset.
+ * Database-level checks of the money paths: release → pay (after term, advance, payoff)
+ * → void → renewal offset, plus the savings minimums.
  * Runs against a DISPOSABLE copy of the database (never production data):
  *   mysql -u root -p < database/mutuallink.sql      (fresh import)
  *   php tests/loan_flow_test.php
@@ -41,67 +42,91 @@ function val(string $sql, array $p = []): mixed
 $pdo = db();
 $_SESSION['user_id'] = 1; // act as the seeded manager for audit columns
 
-// Fixture: member with share capital, a 10,000 / 3-month Regular Loan approved 5 months ago
-$pdo->exec("INSERT INTO members (member_no, last_name, first_name, birthdate, civil_status, address, date_of_membership, member_type)
-            VALUES ('TEST-0001', 'Tester', 'Flow', '1990-01-01', 'single', 'Test', '2020-01-01', 'school')");
+// Fixture: active member; ₱10,000 / 3-month Regular Loan approved and released 100 days ago,
+// so the 3-month term ended about a week ago.
+$pdo->exec("INSERT INTO members (member_no, last_name, first_name, birthdate, civil_status, address, date_of_membership, member_type, status)
+            VALUES ('TEST-0001', 'Tester', 'Flow', '1990-01-01', 'single', 'Test', '2020-01-01', 'school', 'active')");
 $memberId = (int) $pdo->lastInsertId();
-$approved = date('Y-m-d', strtotime('-100 days'));
+$released = date('Y-m-d', strtotime('-100 days'));
 $pdo->exec("INSERT INTO loans (member_id, product_id, principal, term_months, date_applied, date_approved, co_maker, status, created_by, approved_by)
-            VALUES ($memberId, 1, 10000, 3, '$approved', '$approved', 'Co Maker', 'approved', 3, 1)");
+            VALUES ($memberId, 1, 10000, 3, '$released', '$released', 'Co Maker', 'approved', 3, 1)");
 $loanId = (int) $pdo->lastInsertId();
 
-// Release 100 days ago → installment 1 is ~70 days late
+// Release: deductions = insurance 56 + service fee 300 + stockshare 200 + notarial 200 + printing 30 = 786
 $orBefore = (int) val("SELECT setting_value FROM settings WHERE setting_key = 'or_counter'");
-$rel = release_loan($loanId, $approved, null);
-check('net proceeds (10,000 - 600)', $rel['net'], 9400.00);
-check('loan released', val('SELECT status FROM loans WHERE loan_id = ?', [$loanId]), 'released');
-check('outstanding = principal', val('SELECT outstanding_balance FROM loans WHERE loan_id = ?', [$loanId]), 10000.00);
-check('3 installments', val('SELECT COUNT(*) FROM amortization_schedule WHERE loan_id = ?', [$loanId]), 3);
-check('total interest', val('SELECT total_interest FROM loans WHERE loan_id = ?', [$loanId]), 600.00);
-check('deductions recorded', val('SELECT SUM(amount) FROM loan_deductions WHERE loan_id = ?', [$loanId]), 600.00);
-check('CBU credited 200', val("SELECT balance FROM savings_accounts WHERE member_id = ? AND account_type = 'capital_build_up'", [$memberId]), 200.00);
+expect_domain_error('check release needs check number', fn () => release_loan($loanId, $released, null, 'check', ''));
+$rel = release_loan($loanId, $released, null, 'check', 'CHK-1001');
+check('net proceeds', $rel['net'], 9214.00);
+check('released by check', val('SELECT release_mode FROM loans WHERE loan_id = ?', [$loanId]), 'check');
+check('deductions recorded', val('SELECT SUM(amount) FROM loan_deductions WHERE loan_id = ?', [$loanId]), 786.00);
+check('stockshare credited to share capital', val("SELECT balance FROM savings_accounts WHERE member_id = ? AND account_type = 'share_capital'", [$memberId]), 200.00);
 check('release uses no OR number', (int) val("SELECT setting_value FROM settings WHERE setting_key = 'or_counter'"), $orBefore);
-expect_domain_error('cannot release twice', fn () => release_loan($loanId, $approved, null));
+check('3 installments, total interest 600', val('SELECT SUM(interest_due) FROM amortization_schedule WHERE loan_id = ?', [$loanId]), 600.00);
 
-// Late payment: penalty first. Installment 1 total 3,633.33, ~70 days late → 3 months × 4%
-$inst = current_installment($loanId);
-$due = installment_due($inst, 4.00, date('Y-m-d'));
-$expectedPenalty = compute_penalty(3633.33, 4.00, $inst['due_date'], date('Y-m-d'), 0.0);
-check('live penalty', $due['penalty'], $expectedPenalty);
-expect_domain_error('overpayment refused', fn () => post_loan_payment($loanId, $due['total'] + 1, date('Y-m-d'), 'cash'));
+// Term is surpassed: 1 month × (3% + 4%) on the unpaid 10,000 = 300 interest + 400 penalty
+$today = date('Y-m-d');
+$dues = loan_dues(loan_for_payment($loanId), unpaid_installments($loanId), $today);
+check('after-term months', $dues['pd']['months'], 1);
+check('after-term interest', $dues['pd']['interest'], 300.00);
+check('after-term penalty', $dues['pd']['penalty'], 400.00);
+check('payoff = 700 charges + 600 interest + 10,000', $dues['payoff'], 11300.00);
+expect_domain_error('more than payoff refused', fn () => post_loan_payment($loanId, 11300.01, $today, 'cash'));
 expect_domain_error('future date refused', fn () => post_loan_payment($loanId, 100, date('Y-m-d', strtotime('+1 day')), 'cash'));
 
-$p1 = post_loan_payment($loanId, 500.00, date('Y-m-d'), 'cash');
-check('partial: penalty portion first', $p1['split']['penalty'], min(500.00, $expectedPenalty));
-check('installment partial', val('SELECT status FROM amortization_schedule WHERE schedule_id = ?', [$inst['schedule_id']]), 'partial');
+// Partial payment: penalty first, then after-term interest
+$p1 = post_loan_payment($loanId, 500.00, $today, 'cash');
+check('p1: penalty 400', $p1['lines'][0]['penalty'], 400.00);
+check('p1: after-term interest 100', $p1['lines'][0]['pd_interest'], 100.00);
+check('loan pd_penalty_paid', val('SELECT pd_penalty_paid FROM loans WHERE loan_id = ?', [$loanId]), 400.00);
+check('loan pd_interest_paid', val('SELECT pd_interest_paid FROM loans WHERE loan_id = ?', [$loanId]), 100.00);
 
-$inst = current_installment($loanId);
-$due2 = installment_due($inst, 4.00, date('Y-m-d'));
-$p2 = post_loan_payment($loanId, $due2['total'], date('Y-m-d'), 'cash');
-check('installment 1 paid', val('SELECT status FROM amortization_schedule WHERE schedule_id = ?', [$inst['schedule_id']]), 'paid');
-check('outstanding after inst 1', val('SELECT outstanding_balance FROM loans WHERE loan_id = ?', [$loanId]), 6666.67);
-check('OR numbers are unique', val('SELECT COUNT(DISTINCT or_no) FROM payments WHERE loan_id = ?', [$loanId]), 2);
+// Full payoff with ONE official receipt covering all 3 installments (no rebate)
+$dues = loan_dues(loan_for_payment($loanId), unpaid_installments($loanId), $today);
+check('remaining payoff', $dues['payoff'], 10800.00);
+$p2 = post_loan_payment($loanId, $dues['payoff'], $today, 'cash');
+check('p2 covers 3 installments', count($p2['lines']), 3);
+check('one OR, three lines', val('SELECT COUNT(*) FROM payments WHERE or_no = ?', [$p2['or_no']]), 3);
+check('loan paid', val('SELECT status FROM loans WHERE loan_id = ?', [$loanId]), 'paid');
+check('outstanding 0', val('SELECT outstanding_balance FROM loans WHERE loan_id = ?', [$loanId]), 0);
+check('all installments paid', val("SELECT COUNT(*) FROM amortization_schedule WHERE loan_id = ? AND status <> 'paid'", [$loanId]), 0);
 
-// Void: only the latest; restores exactly
-expect_domain_error('void older payment refused', fn () => void_payment($p1['payment_id'], 'test'));
+// Void: only the latest receipt; restores everything it covered
+expect_domain_error('void older receipt refused', fn () => void_payment($p1['payment_id'], 'test'));
 void_payment($p2['payment_id'], 'Encoding error');
 check('void restores outstanding', val('SELECT outstanding_balance FROM loans WHERE loan_id = ?', [$loanId]), 10000.00);
-check('void restores installment to partial', val('SELECT status FROM amortization_schedule WHERE schedule_id = ?', [$inst['schedule_id']]), 'partial');
-check('payment marked void', val('SELECT status FROM payments WHERE payment_id = ?', [$p2['payment_id']]), 'void');
+check('void reopens loan', val('SELECT status FROM loans WHERE loan_id = ?', [$loanId]), 'released');
+check('void restores installments', val("SELECT COUNT(*) FROM amortization_schedule WHERE loan_id = ? AND status = 'unpaid'", [$loanId]), 3);
+check('void keeps p1 charges', val('SELECT pd_interest_paid FROM loans WHERE loan_id = ?', [$loanId]), 100.00);
+check('all 3 lines void', val("SELECT COUNT(*) FROM payments WHERE or_no = ? AND status = 'void'", [$p2['or_no']]), 3);
 expect_domain_error('void twice refused', fn () => void_payment($p2['payment_id'], 'again'));
 
+// Advance payment: more than one installment rolls into the next
+$p3 = post_loan_payment($loanId, 4000.00, $today, 'cash'); // 200 pd interest, then inst 1 (300 + 3333.33), then 166.67 of inst 2 interest
+check('advance covers 2 installments', count($p3['lines']), 2);
+check('installment 1 paid', val('SELECT status FROM amortization_schedule WHERE loan_id = ? AND installment_no = 1', [$loanId]), 'paid');
+check('installment 2 partial', val('SELECT status FROM amortization_schedule WHERE loan_id = ? AND installment_no = 2', [$loanId]), 'partial');
+
 // Renewal: a new loan offsets the old loan's remaining principal
-$pdo->exec("INSERT INTO savings_accounts (member_id, account_type, balance, date_opened) VALUES ($memberId, 'share_capital', 0, CURDATE())");
 $pdo->exec("INSERT INTO loans (member_id, product_id, principal, term_months, date_applied, date_approved, co_maker, status, created_by, approved_by)
             VALUES ($memberId, 1, 20000, 6, CURDATE(), CURDATE(), 'Co Maker', 'approved', 3, 1)");
 $renewId = (int) $pdo->lastInsertId();
-$ren = release_loan($renewId, date('Y-m-d'), $loanId);
-check('renewal net = 20,000 - 1,100 fees - 10,000 previous', $ren['net'], 8900.00);
+$prevBalance = (float) val('SELECT outstanding_balance FROM loans WHERE loan_id = ?', [$loanId]);
+$ren = release_loan($renewId, $today, $loanId);
+check('renewal net = 20,000 - 1,342 fees - previous balance', $ren['net'], money_round(20000 - 1342 - $prevBalance));
 check('old loan paid by offset', val('SELECT status FROM loans WHERE loan_id = ?', [$loanId]), 'paid');
-check('old loan outstanding 0', val('SELECT outstanding_balance FROM loans WHERE loan_id = ?', [$loanId]), 0);
 check('old schedule all paid', val("SELECT COUNT(*) FROM amortization_schedule WHERE loan_id = ? AND status <> 'paid'", [$loanId]), 0);
-expect_domain_error('void after renewal refused', fn () => void_payment($p1['payment_id'], 'late'));
-expect_domain_error('payment on paid loan refused', fn () => post_loan_payment($loanId, 100, date('Y-m-d'), 'cash'));
+expect_domain_error('void after renewal refused', fn () => void_payment($p3['payment_id'], 'late'));
+expect_domain_error('payment on paid loan refused', fn () => post_loan_payment($loanId, 100, $today, 'cash'));
+
+// Savings minimums (regular savings ₱500 maintaining; withdrawals need the passbook)
+$pdo->exec("INSERT INTO savings_accounts (member_id, account_type, balance, date_opened) VALUES ($memberId, 'regular_savings', 0, CURDATE())");
+$rs = (int) $pdo->lastInsertId();
+expect_domain_error('opening deposit below 500 refused', fn () => savings_entry($rs, 'deposit', 400, 1, $today));
+savings_entry($rs, 'deposit', 1000, 1, $today);
+expect_domain_error('withdrawal without passbook refused', fn () => savings_entry($rs, 'withdrawal', 100, -1, $today));
+expect_domain_error('withdrawal below maintaining refused', fn () => savings_entry($rs, 'withdrawal', 600, -1, $today, null, null, true, true));
+$w = savings_entry($rs, 'withdrawal', 500, -1, $today, null, null, true, true);
+check('withdraw down to maintaining balance', $w['balance'], 500.00);
 
 // Clean up fixtures (children first)
 $pdo->exec("DELETE p FROM payments p JOIN loans l ON l.loan_id = p.loan_id WHERE l.member_id = $memberId");

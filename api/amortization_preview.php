@@ -43,14 +43,12 @@ if ($errors) {
     json_out(422, null, $errors);
 }
 
-$schedule = build_schedule($principal, $term, (float) $product['interest_rate'], date('Y-m-d'));
+$schedule = array_map(
+    fn ($r) => $r + ['semi_monthly' => semi_monthly($r['total_due'])],
+    build_schedule($principal, $term, (float) $product['interest_rate'], date('Y-m-d'))
+);
 $interest = money_round(array_sum(array_column($schedule, 'interest_due')));
-$deductions = compute_deductions($principal, [
-    'service_fee_pct'   => (float) setting('service_fee_pct'),
-    'insurance_pct'     => (float) setting('insurance_pct'),
-    'cbu_retention_pct' => (float) setting('cbu_retention_pct'),
-    'notarial_fee'      => (float) setting('notarial_fee'),
-], 0.0);
+$deductions = compute_deductions($principal, deduction_rates(), 0.0);
 
 json_out(200, [
     'schedule'       => $schedule,

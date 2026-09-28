@@ -8,6 +8,7 @@ $reports = [
     'aging'   => ['report_aging', 'Delinquency & aging', 'fas fa-exclamation-triangle'],
     'savings' => ['report_savings', 'Savings', 'fas fa-piggy-bank'],
     'share'   => ['report_share', 'Share capital', 'fas fa-landmark'],
+    'salary'  => ['report_salary', 'Salary deduction list', 'fas fa-money-check'],
 ];
 $allowed = array_filter($reports, fn ($r) => can($r[0]));
 if (!$allowed) {
@@ -42,9 +43,14 @@ $pdo = db();
            FROM savings_transactions t JOIN savings_accounts a ON a.savings_id = t.savings_id JOIN members m ON m.member_id = a.member_id JOIN users u ON u.user_id = t.posted_by
           WHERE t.txn_date = :d2 AND t.or_no IS NOT NULL
             AND NOT EXISTS (SELECT 1 FROM savings_transactions r WHERE r.reverses_txn_id = t.txn_id)
+         UNION ALL
+         SELECT m.membership_fee_or, CAST(m.membership_fee_date AS DATETIME), 'Membership fee', m.member_no, 'cash',
+                CONCAT(m.last_name, ', ', m.first_name), m.membership_fee, 0, u.full_name
+           FROM members m JOIN users u ON u.user_id = m.membership_fee_by
+          WHERE m.membership_fee_date = :d3 AND m.membership_fee_or IS NOT NULL
           ORDER BY or_no"
     );
-    $stmt->execute([':d1' => $date, ':d2' => $date]);
+    $stmt->execute([':d1' => $date, ':d2' => $date, ':d3' => $date]);
     $rows = $stmt->fetchAll();
     $in = array_sum(array_column($rows, 'cash_in'));
     $out = array_sum(array_column($rows, 'cash_out'));
@@ -71,7 +77,7 @@ $pdo = db();
         <div class="stat"><div class="l">Receipts issued</div><div class="v"><?= count($rows) ?></div></div>
         <?php foreach ($byCashier as $c => $net): ?><div class="stat"><div class="l"><?= e($c) ?></div><div class="v"><?= e(money($net)) ?></div></div><?php endforeach; ?>
       </div>
-      <table class="table table-sm table-hover js-datatable" data-export="true" data-title="FFMC Daily Collection <?= e($date) ?>" data-order='[[0,"asc"]]' data-page-length="100">
+      <table class="table table-sm table-hover js-datatable" data-export="true" data-title="FFMPC Daily Collection <?= e($date) ?>" data-order='[[0,"asc"]]' data-page-length="100">
         <thead><tr><th>OR no.</th><th>Time</th><th>Member</th><th>Transaction</th><th>Reference</th><th>Mode</th><th class="num">Cash in</th><th class="num">Cash out</th><th>Posted by</th></tr></thead>
         <tbody>
         <?php foreach ($rows as $r): ?>
@@ -118,7 +124,7 @@ $pdo = db();
   <div class="card">
     <div class="card-header"><h3 class="card-title">Released (active) loans</h3></div>
     <div class="card-body">
-      <table class="table table-sm table-hover js-datatable" data-export="true" data-title="FFMC Active Loans <?= e(date('Y-m-d')) ?>" data-order='[[1,"asc"]]'>
+      <table class="table table-sm table-hover js-datatable" data-export="true" data-title="FFMPC Active Loans <?= e(date('Y-m-d')) ?>" data-order='[[1,"asc"]]'>
         <thead><tr><th>Loan</th><th>Member</th><th>Product</th><th>Released</th><th class="num">Principal</th><th>Paid inst.</th><th>Next due</th><th class="num">Outstanding</th></tr></thead>
         <tbody>
         <?php foreach ($active as $a): ?>
@@ -149,7 +155,7 @@ $pdo = db();
         <?php foreach ($groups as $b => $g): ?><div class="stat"><div class="l"><?= e($b) ?> days</div><div class="v"><?= (int) $g['n'] ?> · <?= e(money($g['amount'])) ?></div></div><?php endforeach; ?>
         <?php if (!$groups): ?><div class="text-muted">No past-due loans. </div><?php endif; ?>
       </div>
-      <table class="table table-sm table-hover js-datatable" data-export="true" data-title="FFMC Aging Report <?= e(date('Y-m-d')) ?>" data-order='[[3,"desc"]]'>
+      <table class="table table-sm table-hover js-datatable" data-export="true" data-title="FFMPC Aging Report <?= e(date('Y-m-d')) ?>" data-order='[[3,"desc"]]'>
         <thead><tr><th>Member</th><th>Loan</th><th>Oldest unpaid due</th><th class="num">Days past due</th><th>Bracket</th><th class="num">Installments</th><th class="num">Amount past due</th></tr></thead>
         <tbody>
         <?php foreach ($rows as $r): ?>
@@ -208,7 +214,7 @@ $pdo = db();
   <div class="card">
     <div class="card-header"><h3 class="card-title">Balances per member</h3></div>
     <div class="card-body">
-      <table class="table table-sm table-hover js-datatable" data-export="true" data-title="FFMC Savings Balances <?= e(date('Y-m-d')) ?>" data-order='[[1,"asc"]]'>
+      <table class="table table-sm table-hover js-datatable" data-export="true" data-title="FFMPC Savings Balances <?= e(date('Y-m-d')) ?>" data-order='[[1,"asc"]]'>
         <thead><tr><th>Member no.</th><th>Member</th><th class="num">Regular savings</th><th class="num">Capital build-up</th><th class="num">Time deposit</th><th class="num">Total</th></tr></thead>
         <tbody>
         <?php foreach ($members as $m): ?>
@@ -239,7 +245,7 @@ $pdo = db();
         <div class="stat"><div class="l">Average per member</div><div class="v"><?= e(money($rows ? $total / count($rows) : 0)) ?></div></div>
         <div class="stat"><div class="l">Below minimum (<?= e(money($minShare)) ?>)</div><div class="v <?= $below ? 'text-danger' : '' ?>"><?= $below ?></div></div>
       </div>
-      <table class="table table-sm table-hover js-datatable" data-export="true" data-title="FFMC Share Capital <?= e(date('Y-m-d')) ?>" data-order='[[1,"asc"]]'>
+      <table class="table table-sm table-hover js-datatable" data-export="true" data-title="FFMPC Share Capital <?= e(date('Y-m-d')) ?>" data-order='[[1,"asc"]]'>
         <thead><tr><th>Member no.</th><th>Member</th><th>Member since</th><th>Status</th><th class="num">Share capital</th><th class="num">% of total</th></tr></thead>
         <tbody>
         <?php foreach ($rows as $r): ?>
@@ -248,6 +254,58 @@ $pdo = db();
         <?php endforeach; ?>
         </tbody>
         <tfoot><tr class="font-weight-bold"><td colspan="4">Total</td><td class="num"><?= e(money($total)) ?></td><td class="num">100%</td></tr></tfoot>
+      </table>
+    </div>
+  </div>
+<?php elseif ($type === 'salary'):
+    // Salary deduction list (questionnaire 6.6): what to deduct on the 15th and the 30th for members who pay by salary deduction.
+    $month = preg_match('/^\d{4}-\d{2}$/', (string) ($_GET['month'] ?? '')) ? $_GET['month'] : date('Y-m');
+    $start = $month . '-01';
+    $end = date('Y-m-t', strtotime($start));
+    $stmt = $pdo->prepare(
+        "SELECT l.loan_id, m.member_no, CONCAT(m.last_name, ', ', m.first_name) AS member_name, m.occupation, p.product_name,
+                s.installment_no, s.due_date, s.total_due - s.principal_paid - s.interest_paid AS amount_due
+           FROM amortization_schedule s
+           JOIN loans l ON l.loan_id = s.loan_id
+           JOIN members m ON m.member_id = l.member_id
+           JOIN loan_products p ON p.product_id = l.product_id
+          WHERE l.status = 'released' AND l.repayment_mode = 'salary_deduction' AND s.status <> 'paid'
+            AND s.due_date <= :end
+          ORDER BY member_name, s.installment_no"
+    );
+    $stmt->execute([':end' => $end]);
+    $rows = $stmt->fetchAll();
+    $total = array_sum(array_column($rows, 'amount_due'));
+?>
+  <div class="card">
+    <div class="card-header d-flex flex-wrap align-items-center">
+      <form method="get" action="dashboard.php" class="form-inline no-print">
+        <input type="hidden" name="page" value="reports"><input type="hidden" name="type" value="salary">
+        <label for="month" class="mr-2">Payroll month</label>
+        <input type="month" id="month" name="month" class="form-control form-control-sm mr-2" value="<?= e($month) ?>">
+        <button class="btn btn-sm btn-outline-primary">Show</button>
+      </form>
+      <h3 class="card-title ml-auto">Salary deduction list · <?= e(date('F Y', strtotime($start))) ?> (15th &amp; 30th)</h3>
+    </div>
+    <div class="card-body">
+      <p class="small text-muted">Unpaid installments due on or before <?= e(fmt_date($end)) ?> for loans paid by salary deduction. Overdue installments from earlier months are included.</p>
+      <table class="table table-sm table-hover js-datatable" data-export="true" data-title="FFMPC Salary Deduction List <?= e($month) ?>" data-order='[[0,"asc"]]' data-page-length="100">
+        <thead><tr><th>Member</th><th>Designation</th><th>Loan</th><th>Inst.</th><th>Due</th><th class="num">Monthly</th><th class="num">15th</th><th class="num">30th</th></tr></thead>
+        <tbody>
+        <?php foreach ($rows as $r): $half = semi_monthly((float) $r['amount_due']); ?>
+          <tr class="<?= $r['due_date'] < $start ? 'text-danger' : '' ?>">
+            <td><?= e($r['member_name']) ?> <span class="small text-muted"><?= e($r['member_no']) ?></span></td>
+            <td><?= e($r['occupation'] ?? '—') ?></td>
+            <td>#<?= (int) $r['loan_id'] ?> · <?= e($r['product_name']) ?></td>
+            <td><?= (int) $r['installment_no'] ?></td>
+            <td><?= e(fmt_date($r['due_date'])) ?><?= $r['due_date'] < $start ? ' <span class="badge badge-danger">Overdue</span>' : '' ?></td>
+            <td class="num"><?= e(money($r['amount_due'])) ?></td>
+            <td class="num"><?= e(money($half)) ?></td>
+            <td class="num"><?= e(money(money_round((float) $r['amount_due'] - $half))) ?></td>
+          </tr>
+        <?php endforeach; ?>
+        </tbody>
+        <tfoot><tr class="font-weight-bold"><td colspan="5">Total to deduct</td><td class="num"><?= e(money($total)) ?></td><td colspan="2"></td></tr></tfoot>
       </table>
     </div>
   </div>

@@ -12,13 +12,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && input('action') === 'toggle_status'
     require_permission('members', 'delete');
     $id = post_id('member_id');
     try {
-        $stmt = db()->prepare('SELECT member_id, member_no, status FROM members WHERE member_id = :id');
+        $stmt = db()->prepare('SELECT member_id, member_no, status, date_approved FROM members WHERE member_id = :id');
         $stmt->execute([':id' => $id]);
         $m = $stmt->fetch();
         if (!$m) {
             flash('error', 'Member not found.');
         } else {
-            $newStatus = $m['status'] === 'active' ? 'inactive' : 'active';
+            // Reactivating never skips the approval step: a never-approved member goes back to applicant.
+            $newStatus = $m['status'] !== 'inactive' ? 'inactive' : ($m['date_approved'] ? 'active' : 'applicant');
             $stmt = db()->prepare("SELECT COUNT(*) FROM loans WHERE member_id = :id AND status IN ('pending','approved','released')");
             $stmt->execute([':id' => $id]);
             if ($newStatus === 'inactive' && (int) $stmt->fetchColumn() > 0) {
@@ -38,7 +39,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && input('action') === 'toggle_status'
     redirect('dashboard.php?page=members');
 }
 
-$status = in_array($_GET['status'] ?? '', ['active', 'inactive', 'all'], true) ? $_GET['status'] : 'active';
+$status = in_array($_GET['status'] ?? '', ['active', 'applicant', 'inactive', 'all'], true) ? $_GET['status'] : 'active';
 
 $sql = "SELECT m.member_id, m.member_no, m.last_name, m.first_name, m.middle_name, m.contact_no, m.member_type,
                m.date_of_membership, m.status,
@@ -57,14 +58,14 @@ $members = $stmt->fetchAll();
 <div class="card">
   <div class="card-header d-flex align-items-center flex-wrap">
     <div class="btn-group btn-group-sm" role="group" aria-label="Filter by status">
-      <?php foreach (['active' => 'Active', 'inactive' => 'Inactive', 'all' => 'All'] as $k => $v): ?>
+      <?php foreach (['active' => 'Active', 'applicant' => 'Applicants', 'inactive' => 'Inactive', 'all' => 'All'] as $k => $v): ?>
         <a href="dashboard.php?page=members&status=<?= $k ?>" class="btn <?= $status === $k ? 'btn-primary' : 'btn-light' ?>"><?= $v ?></a>
       <?php endforeach; ?>
     </div>
     <span class="ml-auto text-muted small"><?= count($members) ?> member(s)</span>
   </div>
   <div class="card-body">
-    <table class="table table-hover js-datatable" data-export="true" data-title="FFMC Members" data-order='[[1,"asc"]]'>
+    <table class="table table-hover js-datatable" data-export="true" data-title="FFMPC Members" data-order='[[1,"asc"]]'>
       <thead>
         <tr><th>Member no.</th><th>Name</th><th>Type</th><th>Contact</th><th>Member since</th><th class="num">Share capital</th><th>Loans</th><th>Status</th><th class="no-sort text-right">Actions</th></tr>
       </thead>
@@ -86,14 +87,14 @@ $members = $stmt->fetchAll();
             <?php endif; ?>
             <?php if (can('members', 'delete')): ?>
               <form method="post" action="" class="d-inline ml-form"
-                    data-confirm="<?= e(($m['status'] === 'active' ? 'Deactivate' : 'Reactivate') . ' member ' . $m['member_no'] . '?') ?>"
-                    data-confirm-button="<?= $m['status'] === 'active' ? 'Deactivate' : 'Reactivate' ?>">
+                    data-confirm="<?= e(($m['status'] !== 'inactive' ? 'Deactivate' : 'Reactivate') . ' member ' . $m['member_no'] . '?') ?>"
+                    data-confirm-button="<?= $m['status'] !== 'inactive' ? 'Deactivate' : 'Reactivate' ?>">
                 <?= csrf_field() ?>
                 <input type="hidden" name="action" value="toggle_status">
                 <input type="hidden" name="member_id" value="<?= (int) $m['member_id'] ?>">
-                <button type="submit" class="btn btn-sm <?= $m['status'] === 'active' ? 'btn-outline-danger' : 'btn-outline-success' ?>"
-                        title="<?= $m['status'] === 'active' ? 'Deactivate' : 'Reactivate' ?>">
-                  <i class="fas <?= $m['status'] === 'active' ? 'fa-user-slash' : 'fa-user-check' ?>"></i>
+                <button type="submit" class="btn btn-sm <?= $m['status'] !== 'inactive' ? 'btn-outline-danger' : 'btn-outline-success' ?>"
+                        title="<?= $m['status'] !== 'inactive' ? 'Deactivate' : 'Reactivate' ?>">
+                  <i class="fas <?= $m['status'] !== 'inactive' ? 'fa-user-slash' : 'fa-user-check' ?>"></i>
                 </button>
               </form>
             <?php endif; ?>

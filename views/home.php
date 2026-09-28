@@ -2,7 +2,7 @@
 declare(strict_types=1);
 
 $title = 'Dashboard';
-$subtitle = 'Good day, ' . ($_SESSION['full_name'] ?? '') . ' — here is today at FFMC.';
+$subtitle = 'Good day, ' . ($_SESSION['full_name'] ?? '') . ' — here is today at FFMPC.';
 
 $pdo = db();
 $today = date('Y-m-d');

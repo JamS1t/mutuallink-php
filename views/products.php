@@ -43,7 +43,8 @@ $products = db()->query(
             <dt>Amount</dt><dd><?= e(money($p['min_amount'])) ?> – <?= e(money($p['max_amount'])) ?></dd>
             <dt>Max term</dt><dd><?= (int) $p['term_months'] ?> months</dd>
             <dt>Interest</dt><dd><?= e($p['interest_rate']) ?>% per month, diminishing</dd>
-            <dt>Late penalty</dt><dd><?= e($p['penalty_rate']) ?>% per month late</dd>
+            <dt>After term</dt><dd><?= e($p['interest_rate']) ?>% + <?= e($p['penalty_rate']) ?>% penalty per month</dd>
+            <dt>Loanable</dt><dd><?= e(LOANABLE_BASIS[$p['loanable_basis']]) ?><?= $p['loanable_basis'] === 'collateral' ? ' (' . e(setting('collateral_loanable_pct')) . '%)' : '' ?></dd>
             <dt>Active loans</dt><dd><?= (int) $p['active_loans'] ?></dd>
           </dl>
         </div>

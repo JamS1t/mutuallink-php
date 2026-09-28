@@ -6,6 +6,7 @@ declare(strict_types=1);
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="csrf-token" content="<?= e(csrf_token()) ?>">
   <title><?= e($title ?? 'MutualLink') ?> · MutualLink</title>
+  <link rel="icon" type="image/png" href="dist/img/favicon.png">
   <link rel="stylesheet" href="plugins/fontawesome-free/css/all.min.css">
   <link rel="stylesheet" href="plugins/datatables-bs4/css/dataTables.bootstrap4.min.css">
   <link rel="stylesheet" href="plugins/datatables-responsive/css/responsive.bootstrap4.min.css">

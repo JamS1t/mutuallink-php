@@ -11,6 +11,7 @@ $m = [
     'last_name' => '', 'first_name' => '', 'middle_name' => '', 'birthdate' => '', 'civil_status' => 'single',
     'address' => '', 'contact_no' => '', 'email' => '', 'occupation' => '', 'monthly_income' => '', 'tin' => '', 'sss' => '',
     'beneficiaries' => '', 'spouse_name' => '', 'date_of_membership' => date('Y-m-d'), 'member_type' => 'school', 'member_no' => '',
+    'pmes_date' => '', 'signature_on_file' => 0, 'status' => 'applicant',
 ];
 if ($isEdit) {
     $stmt = db()->prepare('SELECT * FROM members WHERE member_id = :id');
@@ -23,7 +24,8 @@ if ($isEdit) {
 }
 
 $title = $isEdit ? 'Edit member profile' : 'Register member';
-$subtitle = $isEdit ? $m['member_no'] . ' · ' . $m['last_name'] . ', ' . $m['first_name'] : 'Encoded once; savings and share capital accounts are opened automatically.';
+$subtitle = $isEdit ? $m['member_no'] . ' · ' . $m['last_name'] . ', ' . $m['first_name']
+    : 'For applicants who attended the pre-membership seminar. Share capital and regular savings accounts are opened automatically; the Manager approves the membership.';
 $headerActions = '<a href="' . ($isEdit ? 'dashboard.php?page=member_view&id=' . $id : 'dashboard.php?page=members') . '" class="btn btn-light"><i class="fas fa-arrow-left mr-1"></i> Back</a>';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -39,15 +41,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'email'        => email_in($errors, 'email', 'Email'),
         'occupation'   => opt($errors, 'occupation', 'Occupation', 100),
         'monthly_income' => money_in($errors, 'monthly_income', 'Monthly income', false, 0),
-        'tin'          => pattern_in($errors, 'tin', 'TIN', '/^\d{3}-?\d{3}-?\d{3}(-?\d{3,5})?$/', 'must look like 123-456-789 or 123-456-789-000.'),
+        'tin'          => pattern_in($errors, 'tin', 'TIN', '/^\d{3}-?\d{3}-?\d{3}(-?\d{3,5})?$/', 'must look like 123-456-789 or 123-456-789-000.', true),
         'sss'          => pattern_in($errors, 'sss', 'SSS number', '/^\d{2}-?\d{7}-?\d$/', 'must look like 12-3456789-0.'),
         'beneficiaries' => opt($errors, 'beneficiaries', 'Beneficiaries', 1000),
         'spouse_name'  => opt($errors, 'spouse_name', 'Spouse name', 150),
         'date_of_membership' => date_in($errors, 'date_of_membership', 'Date of membership'),
         'member_type'  => enum_in($errors, 'member_type', 'member type', ['school', 'outside']),
+        'pmes_date'    => date_in($errors, 'pmes_date', 'Pre-membership seminar (PMES) date'),
+        'signature_on_file' => input('signature_on_file') === '1' ? 1 : 0,
     ];
 
     $today = date('Y-m-d');
+    if ($data['pmes_date'] && $data['pmes_date'] > $today) {
+        $errors[] = 'PMES date cannot be in the future.';
+    }
     if ($data['birthdate'] && $data['birthdate'] > date('Y-m-d', strtotime('-18 years'))) {
         $errors[] = 'Member must be at least 18 years old.';
     }
@@ -91,10 +98,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             foreach (['share_capital', 'regular_savings'] as $type) {
                 $acct->execute([':m' => $newId, ':t' => $type, ':d' => $today]);
             }
-            audit_log('create', 'members', $newId, "Registered $memberNo; opened share capital and regular savings");
+            audit_log('create', 'members', $newId, "Registered applicant $memberNo; opened share capital and regular savings");
             $pdo->commit();
 
-            flash('success', "Member $memberNo registered. Share capital and regular savings accounts are open.");
+            flash('success', "Applicant $memberNo registered. Next: membership fee and initial share capital at the cashier, then the Manager's approval.");
             redirect('dashboard.php?page=member_view&id=' . $newId);
         } catch (Throwable $e) {
             db_failure($e);
@@ -169,7 +176,7 @@ $field = fn (string $k) => e(old($k, $m[$k] ?? ''));
           </div>
           <div class="form-row">
             <div class="form-group col-md-6">
-              <label for="tin">TIN</label>
+              <label for="tin">TIN <span class="text-danger">*</span></label>
               <input type="text" class="form-control" id="tin" name="tin" maxlength="20" placeholder="123-456-789" value="<?= $field('tin') ?>">
             </div>
             <div class="form-group col-md-6">
@@ -196,8 +203,20 @@ $field = fn (string $k) => e(old($k, $m[$k] ?? ''));
             </div>
           <?php endif; ?>
           <div class="form-group">
-            <label for="date_of_membership">Date of membership <span class="text-danger">*</span></label>
+            <label for="pmes_date">Pre-membership seminar (PMES) attended <span class="text-danger">*</span></label>
+            <input type="date" class="form-control" id="pmes_date" name="pmes_date" required max="<?= e(date('Y-m-d')) ?>" value="<?= $field('pmes_date') ?>">
+          </div>
+          <div class="form-group">
+            <label for="date_of_membership"><?= ($m['status'] ?? 'applicant') === 'applicant' ? 'Date of application' : 'Date of membership' ?> <span class="text-danger">*</span></label>
             <input type="date" class="form-control" id="date_of_membership" name="date_of_membership" required max="<?= e(date('Y-m-d')) ?>" value="<?= $field('date_of_membership') ?>">
+            <?php if (($m['status'] ?? 'applicant') === 'applicant'): ?><small class="form-text text-muted">Replaced by the approval date when the Manager approves the membership.</small><?php endif; ?>
+          </div>
+          <div class="form-group">
+            <div class="custom-control custom-checkbox">
+              <input type="checkbox" class="custom-control-input" id="signature_on_file" name="signature_on_file" value="1"
+                     <?= ($_SERVER['REQUEST_METHOD'] === 'POST' ? input('signature_on_file') === '1' : (int) $m['signature_on_file'] === 1) ? 'checked' : '' ?>>
+              <label class="custom-control-label" for="signature_on_file">Signature specimen card received</label>
+            </div>
           </div>
           <div class="form-group mb-0">
             <label for="member_type">Member type <span class="text-danger">*</span></label>

@@ -5,7 +5,8 @@ declare(strict_types=1);
 $id = get_id();
 $isEdit = $id > 0;
 
-$loan = ['member_id' => get_id('member_id'), 'product_id' => '', 'principal' => '', 'term_months' => '', 'co_maker' => '', 'collateral' => '', 'remarks' => ''];
+$loan = ['member_id' => get_id('member_id'), 'product_id' => '', 'principal' => '', 'term_months' => '', 'co_maker' => '', 'collateral' => '', 'remarks' => '',
+    'collateral_type' => 'none', 'collateral_value' => '', 'net_pay' => '', 'repayment_mode' => 'cash'];
 if ($isEdit) {
     $stmt = db()->prepare("SELECT * FROM loans WHERE loan_id = :id AND status = 'pending'");
     $stmt->execute([':id' => $id]);
@@ -23,7 +24,7 @@ if ($memberId) {
     $stmt->execute([':id' => $memberId]);
     $member = $stmt->fetch() ?: null;
 }
-$products = db()->query("SELECT product_id, product_name, min_amount, max_amount, term_months, interest_rate FROM loan_products WHERE status = 'active' ORDER BY product_name")->fetchAll();
+$products = db()->query("SELECT product_id, product_name, min_amount, max_amount, term_months, interest_rate, loanable_basis FROM loan_products WHERE status = 'active' ORDER BY product_name")->fetchAll();
 $productMap = array_column($products, null, 'product_id');
 
 $title = $isEdit ? 'Edit loan application #' . $id : 'New loan application';
@@ -36,11 +37,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $principal = money_in($errors, 'principal', 'Principal');
     $term = int_in($errors, 'term_months', 'Term', 1, 60);
     $coMaker = req($errors, 'co_maker', 'Co-maker', 150);
-    $collateral = opt($errors, 'collateral', 'Collateral', 255);
+    $collateralType = enum_in($errors, 'collateral_type', 'collateral type', array_keys(COLLATERAL_TYPES));
+    $collateral = opt($errors, 'collateral', 'Collateral description', 255);
+    $collateralValue = money_in($errors, 'collateral_value', 'Appraised value of collateral', false, 1.00, 999999999.99);
+    $netPay = money_in($errors, 'net_pay', 'Monthly net pay', false, 1.00, 10000000.00);
+    $repayment = enum_in($errors, 'repayment_mode', 'mode of payment', array_keys(REPAYMENT_MODES));
     $remarks = opt($errors, 'remarks', 'Remarks', 255);
 
     if (!$member || $member['status'] !== 'active') {
-        $errors[] = 'Select an active member.';
+        $errors[] = 'Select an active member (applicants must be approved first).';
     }
     $product = $productMap[$productId] ?? null;
     if (!$product) {
@@ -52,9 +57,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($term !== null && $term > (int) $product['term_months']) {
             $errors[] = 'Maximum term for ' . $product['product_name'] . ' is ' . (int) $product['term_months'] . ' months.';
         }
+        // Loanable amount depends on the product (questionnaire 4.1)
+        if ($product['loanable_basis'] === 'collateral') {
+            if ($collateralType === 'none' || $collateral === null || $collateralValue === null) {
+                $errors[] = $product['product_name'] . ' depends on collateral: enter its type, description, and appraised value.';
+            } elseif ($principal !== null && $principal > loanable_from_collateral($collateralValue)) {
+                $errors[] = 'Loanable amount is ' . setting('collateral_loanable_pct') . '% of the appraised value: at most ' . money(loanable_from_collateral($collateralValue)) . '.';
+            }
+        }
+        if ($product['loanable_basis'] === 'net_pay' && $netPay === null) {
+            $errors[] = $product['product_name'] . " depends on net pay: enter the member's monthly net pay.";
+        }
     }
-    if ($member && $member['member_type'] === 'outside' && $collateral === null) {
+    if ($member && $member['member_type'] === 'outside' && ($collateralType === 'none' || $collateral === null)) {
         $errors[] = 'Collateral is required for members from outside the school.';
+    }
+    if ($collateralType === 'none') {
+        $collateral = $collateralValue = null;
     }
     if ($member && !$isEdit) {
         $stmt = db()->prepare("SELECT COUNT(*) FROM loans WHERE member_id = :m AND status IN ('pending','approved')");
@@ -68,10 +87,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         flash_errors($errors);
     } else {
         try {
-            $params = [':p' => $productId, ':pr' => $principal, ':t' => $term, ':c' => $coMaker, ':col' => $collateral, ':r' => $remarks];
+            $params = [':p' => $productId, ':pr' => $principal, ':t' => $term, ':c' => $coMaker, ':ct' => $collateralType, ':col' => $collateral,
+                ':cv' => $collateralValue, ':np' => $netPay, ':rm' => $repayment, ':r' => $remarks];
             if ($isEdit) {
                 $params[':id'] = $id;
-                $upd = db()->prepare("UPDATE loans SET product_id = :p, principal = :pr, term_months = :t, co_maker = :c, collateral = :col, remarks = :r
+                $upd = db()->prepare("UPDATE loans SET product_id = :p, principal = :pr, term_months = :t, co_maker = :c, collateral_type = :ct,
+                                             collateral = :col, collateral_value = :cv, net_pay = :np, repayment_mode = :rm, remarks = :r
                                       WHERE loan_id = :id AND status = 'pending'");
                 $upd->execute($params);
                 if ($upd->rowCount() === 0) {
@@ -84,8 +105,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $params[':m'] = $memberId;
             $params[':u'] = current_user_id();
             db()->prepare(
-                'INSERT INTO loans (member_id, product_id, principal, term_months, date_applied, co_maker, collateral, remarks, status, created_by)
-                 VALUES (:m, :p, :pr, :t, CURDATE(), :c, :col, :r, \'pending\', :u)'
+                "INSERT INTO loans (member_id, product_id, principal, term_months, date_applied, co_maker, collateral_type, collateral, collateral_value,
+                                    net_pay, repayment_mode, remarks, status, created_by)
+                 VALUES (:m, :p, :pr, :t, CURDATE(), :c, :ct, :col, :cv, :np, :rm, :r, 'pending', :u)"
             )->execute($params);
             $newId = (int) db()->lastInsertId();
             audit_log('create', 'loans', $newId, 'Application ' . $product['product_name'] . ' ' . money($principal) . " / $term mo for " . $member['member_no']);
@@ -149,9 +171,42 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
               <label for="co_maker">Co-maker <span class="text-danger">*</span></label>
               <input type="text" class="form-control" id="co_maker" name="co_maker" required maxlength="150" placeholder="Full name of the co-maker who signed" value="<?= e(old('co_maker', $loan['co_maker'])) ?>">
             </div>
-            <div class="form-group">
-              <label for="collateral">Collateral <?= $member['member_type'] === 'outside' ? '<span class="text-danger">*</span>' : '<small class="text-muted">(optional for school-based members)</small>' ?></label>
-              <input type="text" class="form-control" id="collateral" name="collateral" maxlength="255" placeholder="e.g., Motorcycle OR/CR No. 12345" value="<?= e(old('collateral', $loan['collateral'])) ?>">
+            <fieldset class="border rounded px-3 pt-2 mb-3">
+              <legend class="w-auto px-2 small font-weight-bold mb-0">Collateral
+                <?= $member['member_type'] === 'outside' ? '<span class="text-danger">* required (member from outside the school)</span>' : '<span class="text-muted font-weight-normal">(required for Regular Loan)</span>' ?></legend>
+              <div class="form-row">
+                <div class="form-group col-md-4">
+                  <label for="collateral_type">Type</label>
+                  <select class="custom-select" id="collateral_type" name="collateral_type">
+                    <?php foreach (COLLATERAL_TYPES as $k => $v): ?>
+                      <option value="<?= e($k) ?>" <?= old('collateral_type', $loan['collateral_type']) === $k ? 'selected' : '' ?>><?= e($v) ?></option>
+                    <?php endforeach; ?>
+                  </select>
+                </div>
+                <div class="form-group col-md-8">
+                  <label for="collateral">Description</label>
+                  <input type="text" class="form-control" id="collateral" name="collateral" maxlength="255" placeholder="e.g., TCT No. 12345, Mangufangang, 1,082 sq m" value="<?= e(old('collateral', $loan['collateral'])) ?>">
+                </div>
+              </div>
+              <div class="form-group">
+                <label for="collateral_value">Appraised value (₱)</label>
+                <input type="text" inputmode="decimal" class="form-control" id="collateral_value" name="collateral_value" value="<?= e(old('collateral_value', $loan['collateral_value'])) ?>">
+                <small class="form-text text-muted">Regular Loan: loanable amount is <?= e(setting('collateral_loanable_pct')) ?>% of this value.</small>
+              </div>
+            </fieldset>
+            <div class="form-row">
+              <div class="form-group col-md-6">
+                <label for="net_pay">Monthly net pay (₱) <small class="text-muted">(Salary Loan)</small></label>
+                <input type="text" inputmode="decimal" class="form-control" id="net_pay" name="net_pay" value="<?= e(old('net_pay', $loan['net_pay'])) ?>">
+              </div>
+              <div class="form-group col-md-6">
+                <label for="repayment_mode">How the member will pay</label>
+                <select class="custom-select" id="repayment_mode" name="repayment_mode">
+                  <?php foreach (REPAYMENT_MODES as $k => $v): ?>
+                    <option value="<?= e($k) ?>" <?= old('repayment_mode', $loan['repayment_mode']) === $k ? 'selected' : '' ?>><?= e($v) ?></option>
+                  <?php endforeach; ?>
+                </select>
+              </div>
             </div>
             <div class="form-group mb-0">
               <label for="remarks">Remarks</label>
@@ -170,7 +225,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <div class="card-body p-0">
           <div class="table-responsive">
             <table class="table table-sm mb-0">
-              <thead><tr><th>#</th><th>Due date*</th><th class="num">Principal</th><th class="num">Interest</th><th class="num">Total due</th><th class="num">Balance</th></tr></thead>
+              <thead><tr><th>#</th><th>Due date*</th><th class="num">Principal</th><th class="num">Interest</th><th class="num">Total due</th><th class="num">Semi-monthly</th><th class="num">Balance</th></tr></thead>
               <tbody id="preview-body"></tbody>
             </table>
           </div>

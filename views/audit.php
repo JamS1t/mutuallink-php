@@ -49,7 +49,7 @@ $users = db()->query('SELECT user_id, full_name FROM users ORDER BY full_name')-
 <div class="card">
   <div class="card-body">
     <?php if (count($rows) === 500): ?><div class="alert alert-light small">Showing the latest 500 entries. Narrow the filters to see older ones.</div><?php endif; ?>
-    <table class="table table-sm table-hover js-datatable" data-export="true" data-title="FFMC Audit Log <?= e($from) ?> to <?= e($to) ?>" data-order='[[0,"desc"]]' data-page-length="50">
+    <table class="table table-sm table-hover js-datatable" data-export="true" data-title="FFMPC Audit Log <?= e($from) ?> to <?= e($to) ?>" data-order='[[0,"desc"]]' data-page-length="50">
       <thead><tr><th>When</th><th>User</th><th>Action</th><th>Record</th><th>Details</th><th>IP</th></tr></thead>
       <tbody>
       <?php foreach ($rows as $r): ?>

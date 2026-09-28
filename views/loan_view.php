@@ -71,12 +71,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 require_permission('loans', 'release');
                 $errors = [];
                 $releaseDate = date_in($errors, 'release_date', 'Release date');
+                $releaseMode = enum_in($errors, 'release_mode', 'release mode', ['cash', 'check']);
+                $checkNo = opt($errors, 'check_no', 'Check number', 30);
                 $prevId = post_id('prev_loan_id') ?: null;
                 if ($errors) {
                     throw new DomainException(implode(' ', $errors));
                 }
-                $res = release_loan($id, $releaseDate, $prevId);
-                flash('success', 'Loan released. Net proceeds ' . money($res['net']) . '. Give the member a copy of the schedule.');
+                $res = release_loan($id, $releaseDate, $prevId, $releaseMode, $checkNo);
+                flash('success', 'Loan released by ' . $releaseMode . '. Net proceeds ' . money($res['net']) . '. Give the member a copy of the schedule.');
                 break;
 
             case 'void_payment':
@@ -86,7 +88,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     throw new DomainException('A reason (3–255 characters) is required to void a payment.');
                 }
                 void_payment(post_id('payment_id'), $reason);
-                flash('success', 'Payment voided. The installment and loan balance have been restored.');
+                flash('success', 'Receipt voided. The installments, balance, and charges have been restored.');
                 break;
         }
     } catch (ForbiddenException $e) {
@@ -108,16 +110,20 @@ $stmt->execute([':id' => $id]);
 $deductions = $stmt->fetchAll();
 
 $stmt = db()->prepare(
-    "SELECT p.payment_id, p.or_no, p.payment_date, p.amount_paid, p.penalty_portion, p.interest_portion, p.principal_portion,
-            p.remaining_balance, p.mode, p.status, p.void_reason, s.installment_no, u.full_name AS cashier
+    "SELECT p.or_no, MIN(p.payment_id) AS payment_id, p.payment_date, p.mode, p.status, p.void_reason,
+            SUM(p.amount_paid) AS amount_paid, SUM(p.penalty_portion) AS penalty_portion, SUM(p.interest_portion) AS interest_portion,
+            SUM(p.principal_portion) AS principal_portion, MIN(p.remaining_balance) AS remaining_balance,
+            GROUP_CONCAT(s.installment_no ORDER BY s.installment_no SEPARATOR ', ') AS installments, u.full_name AS cashier
        FROM payments p JOIN amortization_schedule s ON s.schedule_id = p.schedule_id JOIN users u ON u.user_id = p.posted_by
-      WHERE p.loan_id = :id ORDER BY p.payment_id DESC"
+      WHERE p.loan_id = :id
+      GROUP BY p.or_no, p.payment_date, p.mode, p.status, p.void_reason, u.full_name
+      ORDER BY payment_id DESC"
 );
 $stmt->execute([':id' => $id]);
-$payments = $stmt->fetchAll();
+$payments = $stmt->fetchAll(); // one row per official receipt
 $latestVoidable = null;
 foreach ($payments as $p) {
-    if ($p['status'] === 'posted' && $p['mode'] !== 'offset') { $latestVoidable = (int) $p['payment_id']; break; }
+    if ($p['status'] === 'posted') { $latestVoidable = $p['mode'] !== 'offset' ? (int) $p['payment_id'] : null; break; }
 }
 $hasOffset = (bool) array_filter($payments, fn ($p) => $p['mode'] === 'offset');
 
@@ -125,20 +131,20 @@ $hasOffset = (bool) array_filter($payments, fn ($p) => $p['mode'] === 'offset');
 $previewDeductions = null;
 $prevLoans = [];
 if ($loan['status'] === 'approved') {
-    $rates = [
-        'service_fee_pct' => (float) setting('service_fee_pct'), 'insurance_pct' => (float) setting('insurance_pct'),
-        'cbu_retention_pct' => (float) setting('cbu_retention_pct'), 'notarial_fee' => (float) setting('notarial_fee'),
-    ];
-    $previewDeductions = compute_deductions((float) $loan['principal'], $rates, 0.0);
+    $previewDeductions = compute_deductions((float) $loan['principal'], deduction_rates(), 0.0);
     $stmt = db()->prepare("SELECT loan_id, outstanding_balance FROM loans WHERE member_id = :m AND status = 'released' AND loan_id <> :id");
     $stmt->execute([':m' => $loan['member_id'], ':id' => $id]);
     $prevLoans = $stmt->fetchAll();
 }
 
-$current = $loan['status'] === 'released' ? current_installment($id) : null;
-$currentDue = $current ? installment_due($current, (float) $loan['penalty_rate'], date('Y-m-d')) : null;
-$paidInterest = array_sum(array_map(fn ($s) => (float) $s['interest_paid'], $schedule));
-$paidPenalty = array_sum(array_map(fn ($s) => (float) $s['penalty_paid'], $schedule));
+$dues = null;
+if ($loan['status'] === 'released') {
+    $payLoan = loan_for_payment($id);
+    $dues = loan_dues($payLoan, unpaid_installments($id), date('Y-m-d'));
+}
+$maturity = $schedule ? end($schedule)['due_date'] : null;
+$paidInterest = array_sum(array_map(fn ($s) => (float) $s['interest_paid'], $schedule)) + (float) $loan['pd_interest_paid'];
+$paidPenalty = (float) $loan['pd_penalty_paid'];
 
 $title = 'Loan #' . $id . ' · ' . $loan['product_name'];
 $subtitle = $loan['member_name'] . ' · ' . $loan['member_no'];
@@ -193,7 +199,7 @@ $pos = array_search($loan['status'], $order, true);
         <div class="card-body p-0">
           <div class="table-responsive">
             <table class="table table-sm table-hover mb-0">
-              <thead><tr><th>#</th><th>Due date</th><th class="num">Principal</th><th class="num">Interest</th><th class="num">Total due</th><th class="num">Paid</th><th class="num">Balance</th><th>Status</th></tr></thead>
+              <thead><tr><th>#</th><th>Due date</th><th class="num">Principal</th><th class="num">Interest</th><th class="num">Total due</th><th class="num">Semi-monthly</th><th class="num">Paid</th><th class="num">Balance</th><th>Status</th></tr></thead>
               <tbody>
               <?php foreach ($schedule as $s):
                   $late = $s['status'] !== 'paid' && $s['due_date'] < date('Y-m-d');
@@ -204,7 +210,8 @@ $pos = array_search($loan['status'], $order, true);
                   <td class="num"><?= e(money($s['principal_due'])) ?></td>
                   <td class="num"><?= e(money($s['interest_due'])) ?></td>
                   <td class="num font-weight-bold"><?= e(money($s['total_due'])) ?></td>
-                  <td class="num"><?= e(money($paid)) ?><?= (float) $s['penalty_paid'] > 0 ? '<div class="small text-muted">+ ' . e(money($s['penalty_paid'])) . ' penalty</div>' : '' ?></td>
+                  <td class="num text-muted"><?= e(money(semi_monthly((float) $s['total_due']))) ?></td>
+                  <td class="num"><?= e(money($paid)) ?></td>
                   <td class="num"><?= e(money($s['balance'])) ?></td>
                   <td><?= badge($s['status']) ?></td>
                 </tr>
@@ -223,13 +230,13 @@ $pos = array_search($loan['status'], $order, true);
           <?php else: ?>
             <div class="table-responsive">
               <table class="table table-sm table-hover mb-0">
-                <thead><tr><th>OR no.</th><th>Date</th><th>Inst.</th><th class="num">Amount</th><th class="num">Penalty</th><th class="num">Interest</th><th class="num">Principal</th><th>Mode</th><th>Status</th><th></th></tr></thead>
+                <thead><tr><th>OR no.</th><th>Date</th><th>Installments</th><th class="num">Amount</th><th class="num">Penalty</th><th class="num">Interest</th><th class="num">Principal</th><th>Mode</th><th>Status</th><th></th></tr></thead>
                 <tbody>
                 <?php foreach ($payments as $p): ?>
                   <tr class="<?= $p['status'] === 'void' ? 'text-muted' : '' ?>">
                     <td><?= $p['mode'] === 'offset' ? e($p['or_no']) : '<a href="dashboard.php?page=receipt&id=' . (int) $p['payment_id'] . '">' . e($p['or_no']) . '</a>' ?></td>
                     <td><?= e(fmt_date($p['payment_date'])) ?></td>
-                    <td><?= (int) $p['installment_no'] ?></td>
+                    <td><?= e($p['installments']) ?></td>
                     <td class="num"><?= e(money($p['amount_paid'])) ?></td>
                     <td class="num"><?= e(money($p['penalty_portion'])) ?></td>
                     <td class="num"><?= e(money($p['interest_portion'])) ?></td>
@@ -238,8 +245,8 @@ $pos = array_search($loan['status'], $order, true);
                     <td><?= badge($p['status']) ?><?= $p['void_reason'] ? '<div class="small text-muted">' . e($p['void_reason']) . '</div>' : '' ?></td>
                     <td class="text-right">
                       <?php if (can('payments', 'void') && (int) $p['payment_id'] === $latestVoidable && !$hasOffset): ?>
-                        <form method="post" action="" class="ml-form" data-confirm-reason data-confirm-button="Void payment"
-                              data-confirm="<?= e('Void ' . $p['or_no'] . ' (' . money($p['amount_paid']) . ')? The installment and balance will be restored; the receipt stays on record marked VOID.') ?>">
+                        <form method="post" action="" class="ml-form" data-confirm-reason data-confirm-button="Void receipt"
+                              data-confirm="<?= e('Void OR ' . $p['or_no'] . ' (' . money($p['amount_paid']) . ')? The installments and balance will be restored; the receipt stays on record marked VOID.') ?>">
                           <?= csrf_field() ?>
                           <input type="hidden" name="action" value="void_payment">
                           <input type="hidden" name="payment_id" value="<?= (int) $p['payment_id'] ?>">
@@ -312,6 +319,19 @@ $pos = array_search($loan['status'], $order, true);
               <input type="date" id="release_date" name="release_date" class="form-control" required
                      min="<?= e($loan['date_approved']) ?>" max="<?= e(date('Y-m-d')) ?>" value="<?= e(date('Y-m-d')) ?>">
             </div>
+            <div class="form-row">
+              <div class="form-group col-6">
+                <label for="release_mode">Released in</label>
+                <select id="release_mode" name="release_mode" class="custom-select">
+                  <option value="cash">Cash</option>
+                  <option value="check">Check</option>
+                </select>
+              </div>
+              <div class="form-group col-6">
+                <label for="check_no">Check no. <small class="text-muted">(if check)</small></label>
+                <input type="text" id="check_no" name="check_no" class="form-control" maxlength="30">
+              </div>
+            </div>
             <?php if ($prevLoans): ?>
               <div class="form-group">
                 <label for="prev_loan_id">Offset previous loan (renewal)</label>
@@ -326,10 +346,12 @@ $pos = array_search($loan['status'], $order, true);
             <?php endif; ?>
             <table class="table table-sm mb-0">
               <tr><td>Principal</td><td class="num"><?= e(money($loan['principal'])) ?></td></tr>
+              <tr><td class="text-muted">Interest (not deducted in advance)</td><td class="num">− <?= e(money(0)) ?></td></tr>
+              <tr><td class="text-muted">Loan insurance</td><td class="num">− <?= e(money($previewDeductions['insurance'])) ?></td></tr>
               <tr><td class="text-muted">Service fee</td><td class="num">− <?= e(money($previewDeductions['service_fee'])) ?></td></tr>
-              <tr><td class="text-muted">Insurance</td><td class="num">− <?= e(money($previewDeductions['insurance'])) ?></td></tr>
-              <tr><td class="text-muted">CBU retention <small>(to member's CBU)</small></td><td class="num">− <?= e(money($previewDeductions['cbu_retention'])) ?></td></tr>
+              <tr><td class="text-muted">Stockshare <small>(to share capital)</small></td><td class="num">− <?= e(money($previewDeductions['stockshare'])) ?></td></tr>
               <tr><td class="text-muted">Notarial fee</td><td class="num">− <?= e(money($previewDeductions['notarial_fee'])) ?></td></tr>
+              <tr><td class="text-muted">Others (printing)</td><td class="num">− <?= e(money($previewDeductions['other_fee'])) ?></td></tr>
               <?php if ($prevLoans): ?><tr><td class="text-muted">Previous loan</td><td class="num">if selected</td></tr><?php endif; ?>
               <tr class="font-weight-bold border-top"><td>Net proceeds</td><td class="num"><?= e(money($previewDeductions['net'])) ?></td></tr>
             </table>
@@ -341,18 +363,27 @@ $pos = array_search($loan['status'], $order, true);
       </div>
     <?php endif; ?>
 
-    <?php if ($currentDue): ?>
+    <?php if ($dues && $dues['current']): $cur = $dues['current']; ?>
       <div class="card">
         <div class="card-header"><h3 class="card-title"><i class="fas fa-hourglass-half mr-2"></i>Currently due</h3></div>
         <div class="card-body">
-          <p class="mb-2">Installment <?= (int) $current['installment_no'] ?> · due <?= e(fmt_date($current['due_date'])) ?>
-            <?= $currentDue['days_late'] > 0 ? '<span class="badge badge-danger ml-1">' . (int) $currentDue['days_late'] . ' days late</span>' : '' ?></p>
-          <table class="table table-sm mb-0">
-            <tr><td>Penalty</td><td class="num"><?= e(money($currentDue['penalty'])) ?></td></tr>
-            <tr><td>Interest</td><td class="num"><?= e(money($currentDue['interest'])) ?></td></tr>
-            <tr><td>Principal</td><td class="num"><?= e(money($currentDue['principal'])) ?></td></tr>
-            <tr class="font-weight-bold border-top"><td>Total today</td><td class="num"><?= e(money($currentDue['total'])) ?></td></tr>
+          <p class="mb-2">Installment <?= (int) $cur['installment_no'] ?> · due <?= e(fmt_date($cur['due_date'])) ?>
+            <?= $cur['due_date'] < date('Y-m-d') ? '<span class="badge badge-danger ml-1">Overdue</span>' : '' ?></p>
+          <?php if ($dues['pd']['months'] > 0): ?>
+            <div class="alert alert-danger small py-2">Term surpassed <?= (int) $dues['days_past_maturity'] ?> day(s) ago (<?= (int) $dues['pd']['months'] ?> month(s)):
+              the unpaid balance is charged <?= e($loan['interest_rate']) ?>% interest + <?= e($loan['penalty_rate']) ?>% penalty per month.</div>
+          <?php endif; ?>
+          <table class="table table-sm mb-2">
+            <?php if ($dues['pd']['months'] > 0): ?>
+              <tr><td>Penalty (after term)</td><td class="num"><?= e(money($dues['pd']['penalty'])) ?></td></tr>
+              <tr><td>Interest (after term)</td><td class="num"><?= e(money($dues['pd']['interest'])) ?></td></tr>
+            <?php endif; ?>
+            <tr><td>Interest</td><td class="num"><?= e(money($cur['interest'])) ?></td></tr>
+            <tr><td>Principal</td><td class="num"><?= e(money($cur['principal'])) ?></td></tr>
+            <tr class="font-weight-bold border-top"><td>Due now</td><td class="num"><?= e(money($dues['current_total'])) ?></td></tr>
           </table>
+          <div class="d-flex justify-content-between small text-muted"><span>Full payoff today (no rebate)</span><strong><?= e(money($dues['payoff'])) ?></strong></div>
+          <div class="d-flex justify-content-between small text-muted"><span>Term ends</span><span><?= e(fmt_date($maturity)) ?></span></div>
         </div>
       </div>
     <?php endif; ?>
@@ -363,7 +394,12 @@ $pos = array_search($loan['status'], $order, true);
         <dl class="dl-grid small" style="grid-template-columns: 120px 1fr">
           <dt>Member</dt><dd><a href="dashboard.php?page=member_view&id=<?= (int) $loan['member_id'] ?>"><?= e($loan['member_name']) ?></a></dd>
           <dt>Co-maker</dt><dd><?= e($loan['co_maker']) ?></dd>
-          <dt>Collateral</dt><dd><?= e($loan['collateral'] ?: '—') ?></dd>
+          <dt>Collateral</dt><dd><?= $loan['collateral_type'] !== 'none'
+              ? e(COLLATERAL_TYPES[$loan['collateral_type']] . ': ' . $loan['collateral']) . ($loan['collateral_value'] !== null ? '<div class="text-muted">Appraised ' . e(money($loan['collateral_value'])) . '</div>' : '')
+              : '—' ?></dd>
+          <?php if ($loan['net_pay'] !== null): ?><dt>Net pay</dt><dd><?= e(money($loan['net_pay'])) ?> / month</dd><?php endif; ?>
+          <dt>Pays by</dt><dd><?= e(REPAYMENT_MODES[$loan['repayment_mode']] ?? label($loan['repayment_mode'])) ?></dd>
+          <?php if ($loan['release_mode']): ?><dt>Released in</dt><dd><?= e(ucfirst($loan['release_mode'])) ?><?= $loan['check_no'] ? ' · check no. ' . e($loan['check_no']) : '' ?></dd><?php endif; ?>
           <dt>Applied</dt><dd><?= e(fmt_date($loan['date_applied'])) ?> by <?= e($loan['encoded_by']) ?></dd>
           <dt>Decision</dt><dd><?= $loan['approver'] ? e(fmt_date($loan['date_approved'])) . ' by ' . e($loan['approver']) : '—' ?></dd>
           <dt>Released</dt><dd><?= $loan['releaser'] ? e(fmt_date($loan['date_released'])) . ' by ' . e($loan['releaser']) : '—' ?></dd>

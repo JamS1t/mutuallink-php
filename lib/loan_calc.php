@@ -3,10 +3,12 @@ declare(strict_types=1);
 
 /**
  * Loan computations (pure functions — no database access).
- * Rules follow FFMC practice as recorded in the design spec §6:
+ * Rules follow FFMPC practice (questionnaire + the cooperative's own sample computation):
  *  - 3% per month on the diminishing balance, equal principal per month
- *  - 4% per month penalty on the unpaid amount of a late installment
+ *  - once the loan term is surpassed, the unpaid balance is charged
+ *    3% interest + 4% penalty = 7% per month (a partial month counts as one)
  *  - payments applied to penalty, then interest, then principal
+ *  - advance or early payment: no rebate, nothing changes
  */
 
 function money_round(float $value): float
@@ -60,48 +62,72 @@ function build_schedule(float $principal, int $months, float $ratePct, string $r
 }
 
 /**
- * Penalty still owed on an installment as of a date.
- * months_late = ceil(days_late / 30); penalty = unpaid × rate × months_late − penalty already paid.
+ * Charges owed once the loan term has been surpassed (FFMPC: "Past due 3% + Penalty 4% = 7%").
+ * For every month or part of a month after maturity, the unpaid principal is charged
+ * interest (3%) and penalty (4%). Amounts already collected are subtracted.
+ * ponytail: charged on the balance as of today; if principal is paid down mid-way the
+ * earlier months are recomputed on the lower balance (never below what was collected).
+ * Switch to month-by-month accrual rows if FFMPC needs exact historical balances.
+ *
+ * @return array{months:int, interest:float, penalty:float}
  */
-function compute_penalty(float $unpaidDue, float $penaltyRatePct, string $dueDate, string $asOf, float $penaltyPaid): float
+function compute_past_due(float $unpaidPrincipal, float $interestPct, float $penaltyPct, string $maturityDate,
+                          string $asOf, float $interestPaid = 0.0, float $penaltyPaid = 0.0): array
 {
-    if ($unpaidDue <= 0) {
-        return 0.00;
+    $days = (int) (new DateTimeImmutable($maturityDate))->diff(new DateTimeImmutable($asOf))->format('%r%a');
+    if ($days <= 0 || $unpaidPrincipal <= 0) {
+        return ['months' => 0, 'interest' => 0.00, 'penalty' => 0.00];
     }
-    $daysLate = (int) (new DateTimeImmutable($dueDate))->diff(new DateTimeImmutable($asOf))->format('%r%a');
-    if ($daysLate <= 0) {
-        return 0.00;
-    }
-    $monthsLate = (int) ceil($daysLate / 30);
-    $penalty = money_round($unpaidDue * $penaltyRatePct / 100 * $monthsLate) - $penaltyPaid;
-    return max(0.00, money_round($penalty));
+    $months = (int) ceil($days / 30);
+    return [
+        'months'   => $months,
+        'interest' => max(0.00, money_round(money_round($unpaidPrincipal * $interestPct / 100 * $months) - $interestPaid)),
+        'penalty'  => max(0.00, money_round(money_round($unpaidPrincipal * $penaltyPct / 100 * $months) - $penaltyPaid)),
+    ];
 }
 
 /**
- * Applies an amount to penalty, then interest, then principal.
- * Anything beyond the three is returned as "excess" (the caller rejects it).
+ * Applies one payment in FFMPC's order: past-due penalty, past-due interest, then each
+ * installment oldest first (its interest, then its principal). An amount larger than one
+ * installment rolls into the next ones (advance payment — no rebate, nothing changes).
+ * Past-due charges are attached to the first installment line.
  *
- * @return array{penalty:float,interest:float,principal:float,excess:float}
+ * @param list<array{schedule_id:int, interest:float, principal:float}> $installments  what is still owed, oldest first
+ * @return array{lines: list<array{schedule_id:int, penalty:float, pd_interest:float, interest:float, principal:float}>, excess: float}
  */
-function split_payment(float $amount, float $penaltyDue, float $interestDue, float $principalDue): array
+function allocate_payment(float $amount, float $pdPenalty, float $pdInterest, array $installments): array
 {
-    $remaining = money_round($amount);
+    $left = money_round($amount);
+    $take = function (float $due) use (&$left): float {
+        $t = min($left, money_round($due));
+        $left = money_round($left - $t);
+        return money_round($t);
+    };
 
-    $penalty = min($remaining, money_round($penaltyDue));
-    $remaining = money_round($remaining - $penalty);
+    $lines = [];
+    $penalty = $take($pdPenalty);
+    $pdInt = $take($pdInterest);
+    foreach ($installments as $i => $inst) {
+        if ($left <= 0 && ($i > 0 || ($penalty == 0 && $pdInt == 0))) {
+            break;
+        }
+        $interest = $take((float) $inst['interest']);
+        $principal = $take((float) $inst['principal']);
+        $lines[] = [
+            'schedule_id' => (int) $inst['schedule_id'],
+            'penalty'     => $i === 0 ? $penalty : 0.00,
+            'pd_interest' => $i === 0 ? $pdInt : 0.00,
+            'interest'    => $interest,
+            'principal'   => $principal,
+        ];
+    }
+    return ['lines' => $lines, 'excess' => $left];
+}
 
-    $interest = min($remaining, money_round($interestDue));
-    $remaining = money_round($remaining - $interest);
-
-    $principal = min($remaining, money_round($principalDue));
-    $remaining = money_round($remaining - $principal);
-
-    return [
-        'penalty'   => money_round($penalty),
-        'interest'  => money_round($interest),
-        'principal' => money_round($principal),
-        'excess'    => $remaining,
-    ];
+/** Semi-monthly share of a monthly amount (salary deduction on the 15th and 30th). */
+function semi_monthly(float $monthly): float
+{
+    return money_round($monthly / 2);
 }
 
 /**
@@ -147,18 +173,21 @@ function aging_bracket(int $daysPastDue, array $bounds): string
 }
 
 /**
- * Deductions withheld before release, and the resulting net proceeds.
+ * Deductions withheld before release, and the resulting net proceeds — the same lines as
+ * FFMPC's "Summary of loan computation": loan insurance, service fee, stockshare, notarial
+ * fee, others (printing), plus the balance of a previous loan when it is renewed.
  *
- * @param array{service_fee_pct:float,insurance_pct:float,cbu_retention_pct:float,notarial_fee:float} $rates
- * @return array{service_fee:float,insurance:float,cbu_retention:float,notarial_fee:float,previous_loan:float,total:float,net:float}
+ * @param array{service_fee_pct:float,insurance_pct:float,stockshare_pct:float,notarial_fee:float,other_fee:float} $rates
+ * @return array{service_fee:float,insurance:float,stockshare:float,notarial_fee:float,other_fee:float,previous_loan:float,total:float,net:float}
  */
 function compute_deductions(float $principal, array $rates, float $previousLoanBalance): array
 {
     $d = [
         'service_fee'   => money_round($principal * $rates['service_fee_pct'] / 100),
         'insurance'     => money_round($principal * $rates['insurance_pct'] / 100),
-        'cbu_retention' => money_round($principal * $rates['cbu_retention_pct'] / 100),
+        'stockshare'    => money_round($principal * $rates['stockshare_pct'] / 100),
         'notarial_fee'  => money_round($rates['notarial_fee']),
+        'other_fee'     => money_round($rates['other_fee']),
         'previous_loan' => money_round($previousLoanBalance),
     ];
     $d['total'] = money_round(array_sum($d));

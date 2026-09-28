@@ -32,6 +32,7 @@ const ROUTES = [
     'payment_post'   => ['payments', 'create', 'payments'],
     'receipt'        => ['payments', 'view', 'payments'],
     'delinquency'    => ['delinquency', 'view', 'delinquency'],
+    'demand_letter'  => ['delinquency', 'view', 'delinquency'],
     'notifications'  => ['notifications', 'view', 'notifications'],
     'reports'        => ['reports', 'view', 'reports'],
     'audit'          => ['audit', 'view', 'audit'],

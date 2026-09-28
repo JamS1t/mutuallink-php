@@ -34,7 +34,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             foreach ($upcoming as $u) {
                 $exists->execute([':l' => $u['loan_id'], ':t' => 'upcoming']);
                 if ((int) $exists->fetchColumn() > 0) { continue; }
-                $msg = 'Good day, ' . $u['first_name'] . '! This is a reminder from FFMC that installment ' . $u['installment_no']
+                $msg = 'Good day, ' . $u['first_name'] . '! This is a reminder from FFMPC that installment ' . $u['installment_no']
                     . ' of your loan #' . $u['loan_id'] . ' amounting to ' . money($u['amount_due']) . ' is due on ' . fmt_date($u['due_date'])
                     . '. Thank you for paying on time.';
                 $ins->execute([':m' => $u['member_id'], ':l' => $u['loan_id'], ':t' => 'upcoming', ':msg' => $msg, ':u' => current_user_id()]);
@@ -43,7 +43,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             foreach ($overdue as $o) {
                 $exists->execute([':l' => $o['loan_id'], ':t' => 'overdue']);
                 if ((int) $exists->fetchColumn() > 0) { continue; }
-                $msg = 'Good day! FFMC records show that your loan #' . $o['loan_id'] . ' has ' . money($o['amount_past_due'])
+                $msg = 'Good day! FFMPC records show that your loan #' . $o['loan_id'] . ' has ' . money($o['amount_past_due'])
                     . ' past due since ' . fmt_date($o['oldest_due']) . ' (' . $o['days_past_due'] . ' days). A penalty applies to late payments. '
                     . 'Please settle at the cooperative office at your earliest convenience.';
                 $ins->execute([':m' => $o['member_id'], ':l' => $o['loan_id'], ':t' => 'overdue', ':msg' => $msg, ':u' => current_user_id()]);
@@ -112,7 +112,7 @@ if (can('notifications', 'create')) {
       <thead><tr><th>#</th><th>Member</th><th>Type</th><th style="width: 40%">Message</th><th>Status</th><th class="no-sort text-right">Actions</th></tr></thead>
       <tbody>
       <?php foreach ($rows as $n):
-          $subject = 'FFMC loan #' . $n['loan_id'] . ' payment reminder';
+          $subject = 'FFMPC loan #' . $n['loan_id'] . ' payment reminder';
           $mailto = $n['email'] ? 'mailto:' . rawurlencode($n['email']) . '?subject=' . rawurlencode($subject) . '&body=' . rawurlencode($n['message']) : ''; ?>
         <tr>
           <td data-order="<?= (int) $n['notification_id'] ?>"><?= (int) $n['notification_id'] ?></td>

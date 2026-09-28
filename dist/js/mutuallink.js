@@ -257,6 +257,7 @@
             tr.appendChild(el('td', peso(r.principal_due), 'num'));
             tr.appendChild(el('td', peso(r.interest_due), 'num'));
             tr.appendChild(el('td', peso(r.total_due), 'num font-weight-bold'));
+            tr.appendChild(el('td', peso(r.semi_monthly), 'num text-muted'));
             tr.appendChild(el('td', peso(r.balance), 'num'));
             previewBody.appendChild(tr);
           });
@@ -272,28 +273,34 @@
     runPreview();
   }
 
-  /* ---------- Payment split preview (display only; server recomputes) ---------- */
+  /* ---------- Payment split preview (display only; the server recomputes) ----------
+     Same order as allocate_payment(): penalty after term → interest after term →
+     each installment oldest first (interest, then principal). Works in centavos. */
   var amountInput = document.getElementById('payment-amount');
-  if (amountInput) {
-    var dues = {
-      penalty: Number(amountInput.dataset.penalty),
-      interest: Number(amountInput.dataset.interest),
-      principal: Number(amountInput.dataset.principal)
-    };
-    var cents = function (n) { return Math.round(n * 100); };
+  if (amountInput && amountInput.dataset.alloc) {
+    var alloc = JSON.parse(amountInput.dataset.alloc);
+    var c = function (n) { return Math.round(Number(n) * 100); };
     var render = function () {
-      var left = cents(Number(amountInput.value || 0));
-      var parts = {};
-      ['penalty', 'interest', 'principal'].forEach(function (k) {
-        var take = Math.min(left, cents(dues[k]));
-        parts[k] = take; left -= take;
+      var left = c(amountInput.value || 0);
+      var take = function (due) { var t = Math.min(left, c(due)); left -= t; return t; };
+      var pen = take(alloc.penalty);
+      var interest = take(alloc.pd_interest);
+      var principal = 0;
+      var covered = [];
+      alloc.installments.forEach(function (inst) {
+        if (left <= 0) return;
+        var i = take(inst.interest);
+        var p = take(inst.principal);
+        interest += i; principal += p;
+        if (i + p > 0) covered.push(inst.no);
       });
-      document.getElementById('split-penalty').textContent = peso(parts.penalty / 100);
-      document.getElementById('split-interest').textContent = peso(parts.interest / 100);
-      document.getElementById('split-principal').textContent = peso(parts.principal / 100);
+      document.getElementById('split-penalty').textContent = peso(pen / 100);
+      document.getElementById('split-interest').textContent = peso(interest / 100);
+      document.getElementById('split-principal').textContent = peso(principal / 100);
+      document.getElementById('split-installments').textContent = covered.length ? covered.join(', ') : '—';
       var warn = document.getElementById('split-excess');
       warn.hidden = left <= 0;
-      warn.textContent = left > 0 ? 'Amount exceeds this installment by ' + peso(left / 100) + '. Post the extra as a separate payment on the next installment.' : '';
+      warn.textContent = left > 0 ? 'Amount is ' + peso(left / 100) + ' more than the full payoff of ' + peso(amountInput.dataset.payoff) + '.' : '';
     };
     $(amountInput).on('input', render);
     $(document).on('click', '[data-fill-amount]', function () { amountInput.value = this.getAttribute('data-fill-amount'); render(); });
@@ -306,7 +313,7 @@
     var values = JSON.parse(canvas.getAttribute('data-values') || '[]');
     new Chart(canvas.getContext('2d'), {
       type: canvas.getAttribute('data-chart'),
-      data: { labels: labels, datasets: [{ label: canvas.getAttribute('data-label') || '', data: values, backgroundColor: 'rgba(31,111,80,.75)', borderRadius: 4 }] },
+      data: { labels: labels, datasets: [{ label: canvas.getAttribute('data-label') || '', data: values, backgroundColor: 'rgba(31,107,129,.8)', borderRadius: 4 }] },
       options: {
         maintainAspectRatio: false,
         legend: { display: false },

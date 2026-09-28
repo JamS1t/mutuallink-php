@@ -73,6 +73,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Sign in · MutualLink</title>
+  <link rel="icon" type="image/png" href="dist/img/favicon.png">
   <link rel="stylesheet" href="plugins/fontawesome-free/css/all.min.css">
   <link rel="stylesheet" href="plugins/toastr/toastr.min.css">
   <link rel="stylesheet" href="dist/css/adminlte.min.css">
@@ -81,9 +82,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <body class="hold-transition login-page">
 <main class="login-box">
   <div class="login-brand">
-    <span class="brand-mark" aria-hidden="true">ML</span>
+    <span class="login-logo-badge"><img src="dist/img/logo-256.png" alt="MutualLink logo" width="84" height="84"></span>
     <h1>MutualLink</h1>
-    <p>Franciscan Friends Multipurpose Cooperative</p>
+    <p>Franciscan Friends Multi-Purpose Cooperative</p>
   </div>
 
   <div class="card border-0">

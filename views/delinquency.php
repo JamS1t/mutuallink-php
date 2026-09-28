@@ -33,7 +33,7 @@ $dates = db()->query('SELECT DISTINCT date_generated FROM delinquency ORDER BY d
 $date = get_date('date', $dates[0] ?? date('Y-m-d'));
 
 $stmt = db()->prepare(
-    "SELECT d.*, l.principal, l.outstanding_balance, l.co_maker, p.product_name, m.member_id, m.member_no, m.contact_no,
+    "SELECT d.*, l.principal, l.outstanding_balance, l.co_maker, l.status AS loan_status, p.product_name, m.member_id, m.member_no, m.contact_no,
             CONCAT(m.last_name, ', ', m.first_name) AS member_name
        FROM delinquency d
        JOIN loans l ON l.loan_id = d.loan_id
@@ -125,8 +125,8 @@ $headerActions = implode(' ', $btns);
     <?php if (!$dates): ?>
       <div class="empty-state"><i class="fas fa-clipboard-list"></i>No delinquency list has been generated yet.<?= can('delinquency', 'create') ? ' Click “Update list now”.' : '' ?></div>
     <?php else: ?>
-      <table class="table table-hover js-datatable" data-export="true" data-title="FFMC Delinquency List <?= e($date) ?>" data-order='[[4,"desc"]]' data-empty="No past-due loans on this date.">
-        <thead><tr><th>Member</th><th>Contact</th><th>Loan</th><th>Co-maker</th><th class="num">Days past due</th><th>Bracket</th><th class="num">Amount past due</th><th class="num">Outstanding</th></tr></thead>
+      <table class="table table-hover js-datatable" data-export="true" data-title="FFMPC Delinquency List <?= e($date) ?>" data-order='[[4,"desc"]]' data-empty="No past-due loans on this date.">
+        <thead><tr><th>Member</th><th>Contact</th><th>Loan</th><th>Co-maker</th><th class="num">Days past due</th><th>Bracket</th><th class="num">Amount past due</th><th class="num">Outstanding</th><th class="no-sort no-print"></th></tr></thead>
         <tbody>
         <?php foreach ($rows as $r): ?>
           <tr>
@@ -138,6 +138,7 @@ $headerActions = implode(' ', $btns);
             <td><span class="badge <?= (int) $r['days_past_due'] > 90 ? 'badge-danger' : ((int) $r['days_past_due'] > 30 ? 'badge-warning' : 'badge-light') ?>"><?= e($r['aging_bracket']) ?></span></td>
             <td class="num"><?= e(money($r['amount_past_due'])) ?></td>
             <td class="num"><?= e(money($r['outstanding_balance'])) ?></td>
+            <td class="no-print text-right"><?php if ($r['loan_status'] === 'released'): ?><a href="dashboard.php?page=demand_letter&loan_id=<?= (int) $r['loan_id'] ?>" class="btn btn-xs btn-outline-danger" title="Print demand letter"><i class="fas fa-envelope-open-text"></i> Demand letter</a><?php endif; ?></td>
           </tr>
         <?php endforeach; ?>
         </tbody>

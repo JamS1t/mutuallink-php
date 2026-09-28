@@ -1,6 +1,6 @@
 # MutualLink
 
-Integrated Loan, Balance, and Savings Management System for the **Franciscan Friends Multipurpose Cooperative (FFMC)**, Baybay City, Leyte.
+Integrated Loan, Balance, and Savings Management System for the **Franciscan Friends Multi-Purpose Cooperative (FFMPC)**, Baybay City, Leyte.
 
 Stack (as in the paper, Ch. III): **WampServer 3.3.5** (Apache 2.4, PHP 8.2, MySQL 8.3) · HTML5/CSS3/JavaScript · **AdminLTE 3.2.0 / Bootstrap 4.6.1** · PDO. No frameworks, no build step, works offline.
 
@@ -36,24 +36,37 @@ Requirements already enabled in WampServer: `pdo_mysql`, `mbstring`. Apache `All
 | Version | Module | Create | Read | Update | Delete (soft) |
 |---|---|---|---|---|---|
 | V1 | User accounts | Add user | List | Role, status, reset password | Deactivate |
-| V1 | Members | Register (auto-opens share capital + regular savings) | List, single member record + eligibility | Edit profile | Deactivate |
+| V1 | Members | Register applicant (PMES, TIN, signature specimen; auto-opens share capital + regular savings) | List, single member record + eligibility | Edit profile · membership fee (Cashier, OR) · approve membership (Manager) | Deactivate |
 | V1 | Savings & share capital | Open account, post deposit/withdrawal (OR issued) | Passbook with running balance | Reopen | Reversal entry, close at ₱0 |
-| V2 | Loan products | Add | List | Edit limits/rates | Deactivate |
-| V2 | Loans | Application | List, loan record, printable schedule | Approve/reject, release (schedule + deductions) | Cancel pending |
-| V2 | Payments | Post payment → official receipt | History | — | Void latest (restores balances) |
-| V3 | Delinquency | Generate aging snapshot | List by bracket | — | — |
+| V2 | Loan products | Add | List | Edit limits/rates/loanable basis | Deactivate |
+| V2 | Loans | Application (collateral + appraisal, net pay, mode of payment) | List, loan record, printable schedule | Approve/reject, release in cash or check (schedule + deductions) | Cancel pending |
+| V2 | Payments | Post payment → one official receipt (may cover several installments) | History | — | Void latest receipt (restores balances) |
+| V3 | Delinquency | Generate aging snapshot · demand letter | List by bracket | — | — |
 | V3 | Reminders | Generate upcoming/overdue | List | Mark sent/failed | Remove unsent |
-| V3 | Reports / audit / settings | — | Daily collection, loan status, aging, savings, share capital, audit log | Settings (Manager) | — |
+| V3 | Reports / audit / settings | — | Daily collection, loan status, aging, savings, share capital, salary deduction list, audit log | Settings (Manager) | — |
 
-## 3. Computation rules (`lib/loan_calc.php`)
+## 3. FFMPC rules (from the requirements questionnaire, Appendix A)
 
-- **Interest:** 3% per month on the diminishing balance, **equal principal** each month. ₱10,000 × 3 months → ₱3,633.33 / ₱3,533.33 / ₱3,433.34 (total interest ₱600).
-- **Penalty:** 4% per month late on the unpaid amount of the installment; a partial month counts as one month. ₱3,633.33, 40 days late → ₱290.67.
-- **Payment order:** penalty → interest → principal, against the oldest unpaid installment.
-- **Deductions at release:** service fee %, insurance %, CBU retention % (credited to the member's CBU account), notarial fee, previous-loan balance (renewal offset).
-- **Aging brackets:** 1–30, 31–60, 61–90, 91–180, 181–365, over 365 days (editable).
+**Loans (`lib/loan_calc.php`, `lib/loan_service.php`)**
+- **Interest:** 3% per month on the diminishing balance, **equal principal** each month — checked against FFMPC's own sample: ₱26,000 / 9 months → principal 2,888.89, interest 780.00, 693.33, 606.67 … 86.67, total interest ₱3,900.00.
+- **Semi-monthly amount** (salary deduction on the 15th and 30th) is shown beside each monthly amount, as in FFMPC's computation sheet.
+- **After the term (past due):** once the loan term is surpassed, the unpaid balance is charged **3% interest + 4% penalty = 7% per month** (a partial month counts as one). No penalty while the term is running.
+- **Payment order:** penalty → interest → principal, oldest installment first. Paying more than one installment settles the next ones in advance; paying everything closes the loan early. **No rebate** on advance or early payment.
+- **Deductions at release** (FFMPC's "Summary of loan computation"): loan insurance 0.56%, service fee 3%, stockshare 2% (credited to share capital), notarial fee ₱200, others/printing ₱30, and the balance of a previous loan on renewal. Interest is not deducted in advance. ₱26,000 → deductions ₱1,675.60, net ₱24,324.40.
+- **Loanable amount:** Regular Loan up to 30% of the collateral's appraised value (₱3,000,000 title → ₱900,000), up to 1 year; Salary Loan depends on net pay, up to 1 year; Emergency Loan up to ₱3,000, 3 months.
+- **Eligibility:** good payment record, a co-maker, and collateral for members from outside the school; the member must be an approved (active) member.
+- **Release:** cash or check, by the Manager.
 
-Rates and amounts marked as placeholders in **Settings** must be confirmed with the FFMC bookkeeper.
+**Members and savings**
+- Membership: pre-membership seminar (PMES) → application form with TIN and signature specimen → membership fee + initial share capital → Manager's approval (about one month). Applicants cannot borrow.
+- Minimums: share capital ₱2,000, regular savings ₱500 maintaining balance, time deposit ₱10,000, CBU ₱100 per month.
+- Withdrawals need the passbook (a lost passbook requires a notarized affidavit of loss); deposits do not.
+
+**Receipts:** plain numbered OR series like the receipt booklet (e.g. 025952). The Manager sets the last number issued in **Settings**; it can only move forward.
+
+**Aging brackets:** 1–30, 31–60, 61–90, 91–180, 181–365, over 365 days (editable).
+
+All rates and minimums are editable in **Settings**. FFMPC's Excel rounds each monthly total **down to ₱0.05** (e.g. 3,668.89 → 3,668.85); MutualLink keeps exact centavos so the balance reaches exactly zero.
 
 ## 4. Tests
 

@@ -30,8 +30,8 @@ $initials = strtoupper(implode('', array_map(fn ($w) => $w[0] ?? '', array_slice
 ?>
 <aside class="main-sidebar sidebar-light-success elevation-1">
   <a href="dashboard.php" class="brand-link">
-    <span class="brand-mark" aria-hidden="true">ML</span>
-    <span class="brand-text">MutualLink<small>FFMC Lending &amp; Savings</small></span>
+    <img src="dist/img/logo-white-96.png" alt="" class="brand-logo" width="34" height="34">
+    <span class="brand-text">MutualLink<small>FFMPC Lending &amp; Savings</small></span>
   </a>
 
   <div class="sidebar">
