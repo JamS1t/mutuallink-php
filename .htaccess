@@ -1,0 +1,9 @@
+# MutualLink — Apache 2.4 (WampServer)
+Options -Indexes
+DirectoryIndex index.php
+
+# Block direct access to internal folders and non-public files
+RedirectMatch 403 ^.*/(config|lib|database|tests|docs|include|views)/
+<FilesMatch "\.(sql|bat|md|log|ini)$">
+    Require all denied
+</FilesMatch>
