@@ -210,6 +210,14 @@ function get_id(string $key = 'id'): int
     return $v === false ? 0 : $v;
 }
 
+/** Y-m-d date from the query string, or the default when missing/invalid. */
+function get_date(string $key, string $default): string
+{
+    $v = $_GET[$key] ?? '';
+    $d = is_string($v) ? DateTime::createFromFormat('!Y-m-d', $v) : false;
+    return ($d && $d->format('Y-m-d') === $v) ? $v : $default;
+}
+
 function post_id(string $key): int
 {
     $v = filter_var(input($key), FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);

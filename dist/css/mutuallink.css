@@ -156,3 +156,6 @@ a:hover { color: var(--ml-green-dark); }
   .print-doc { border: 0; margin: 0 auto; padding: 0; }
   body { background: #fff; }
 }
+
+/* ---------- Utilities missing from Bootstrap 4 ---------- */
+.opacity-50 { opacity: .55; }

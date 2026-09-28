@@ -14,5 +14,8 @@ require_once __DIR__ . '/session.php';
 require_once __DIR__ . '/rbac.php';
 require_once __DIR__ . '/helpers.php';
 require_once __DIR__ . '/../lib/loan_calc.php';
+require_once __DIR__ . '/../lib/loan_service.php';
 
-start_secure_session();
+if (PHP_SAPI !== 'cli') {
+    start_secure_session();
+}
