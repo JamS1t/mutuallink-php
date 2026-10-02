@@ -8,7 +8,8 @@
   --ml-green-soft: #e6f1f4;
   --ml-brown: #8a5a2b;
   --ml-ink: #1f2933;
-  --ml-muted: #6b7280;
+  /* Muted text: 5.9:1 on white and 5.4:1 on #f4f6f5 (the old #6b7280 fell to 4.4:1 on the app background) */
+  --ml-muted: #5d6470;
   --ml-line: #e5e7eb;
   --ml-bg: #f4f6f5;
 }
@@ -29,7 +30,7 @@ body {
   display: flex; align-items: center; gap: .6rem;
 }
 .brand-link .brand-text { font-weight: 700 !important; letter-spacing: .2px; color: var(--ml-ink); }
-.brand-link small { display: block; font-size: .68rem; color: var(--ml-muted); font-weight: 400; margin-top: -2px; }
+.brand-link small { display: block; font-size: .8rem; color: var(--ml-muted); font-weight: 400; margin-top: -2px; }
 .sidebar-collapse .brand-link small { display: none; }
 
 .sidebar .user-panel { border-bottom: 1px solid var(--ml-line); }
@@ -38,10 +39,10 @@ body {
   background: var(--ml-green-soft); color: var(--ml-green);
   display: inline-flex; align-items: center; justify-content: center; font-weight: 700;
 }
-.user-panel .role-chip { font-size: .72rem; color: var(--ml-muted); }
+.user-panel .role-chip { font-size: .8rem; color: var(--ml-muted); }
 
 .nav-sidebar .nav-header {
-  font-size: .68rem; text-transform: uppercase; letter-spacing: .08em;
+  font-size: .8rem; text-transform: uppercase; letter-spacing: .08em;
   color: var(--ml-muted) !important; padding-top: 1rem;
 }
 .sidebar-light-success .nav-sidebar > .nav-item > .nav-link.active {
@@ -82,9 +83,9 @@ a:hover { color: var(--ml-green-dark); }
   width: 46px; height: 46px; border-radius: 12px; flex: none;
   display: inline-flex; align-items: center; justify-content: center; font-size: 1.15rem;
 }
-.kpi-label { font-size: .78rem; color: var(--ml-muted); text-transform: uppercase; letter-spacing: .04em; }
+.kpi-label { font-size: .8rem; color: var(--ml-muted); text-transform: uppercase; letter-spacing: .04em; }
 .kpi-value { font-size: 1.35rem; font-weight: 700; line-height: 1.2; font-variant-numeric: tabular-nums; }
-.kpi .kpi-hint { font-size: .78rem; color: var(--ml-muted); }
+.kpi .kpi-hint { font-size: .8rem; color: var(--ml-muted); }
 .tone-green { background: var(--ml-green-soft); color: var(--ml-green); }
 .tone-blue { background: #e8f0fb; color: #1d5fbf; }
 .tone-amber { background: #fdf3e1; color: #a15c00; }
@@ -92,7 +93,7 @@ a:hover { color: var(--ml-green-dark); }
 .tone-brown { background: #f5ece3; color: var(--ml-brown); }
 
 /* ---------- Tables & numbers ---------- */
-.table thead th { font-size: .78rem; text-transform: uppercase; letter-spacing: .03em; color: var(--ml-muted); border-bottom-width: 1px; }
+.table thead th { font-size: .8rem; text-transform: uppercase; letter-spacing: .03em; color: var(--ml-muted); border-bottom-width: 1px; }
 .num, td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .table td { vertical-align: middle; }
 .table-sm td, .table-sm th { padding: .45rem .6rem; }
@@ -105,7 +106,7 @@ a:hover { color: var(--ml-green-dark); }
 
 .stat-strip { display: flex; flex-wrap: wrap; gap: 1.5rem; }
 .stat-strip .stat .v { font-size: 1.15rem; font-weight: 700; font-variant-numeric: tabular-nums; }
-.stat-strip .stat .l { font-size: .75rem; color: var(--ml-muted); text-transform: uppercase; letter-spacing: .04em; }
+.stat-strip .stat .l { font-size: .8rem; color: var(--ml-muted); text-transform: uppercase; letter-spacing: .04em; }
 
 /* ---------- Eligibility checklist ---------- */
 .check-list { list-style: none; padding: 0; margin: 0; }
@@ -167,4 +168,91 @@ a:hover { color: var(--ml-green-dark); }
 }
 @media (max-width: 1599.98px) {
   .loan-side { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 0 1rem; align-items: start; }
+}
+
+/* Whole-row navigation (data-href on the <tr>) */
+tr[data-href] { cursor: pointer; }
+tr[data-href]:hover td { background-color: rgba(0, 0, 0, .03); }
+tr[data-href]:focus { outline: 2px solid var(--ml-green); outline-offset: -2px; }
+
+/* ---------- Skip to content (first tab stop on every app page) ---------- */
+.skip-link {
+  position: absolute; left: -10000px; top: 0; z-index: 3000;
+  background: #fff; color: var(--ml-green); font-weight: 600;
+  padding: .6rem 1rem; border-radius: 0 0 .4rem 0;
+  box-shadow: 0 2px 8px rgba(16, 24, 40, .15);
+}
+.skip-link:focus { left: 0; top: 0; }
+#content-main:focus { outline: none; }
+
+/* ---------- Icon-only buttons: real hit areas (WCAG 2.5.8) ---------- */
+.btn-xs {
+  min-width: 28px; min-height: 28px; padding: .15rem .45rem;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+
+/* ---------- Step indicator (find member → choose loan → post) ---------- */
+.ml-steps { list-style: none; display: flex; flex-wrap: wrap; gap: .35rem 1.75rem; padding: 0; margin: 0; }
+.ml-step { display: flex; align-items: center; gap: .45rem; color: var(--ml-muted); font-size: .9rem; }
+.ml-step-dot {
+  width: 24px; height: 24px; border-radius: 50%; flex: none;
+  border: 2px solid var(--ml-line); background: #fff;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: .8rem; font-weight: 700;
+}
+.ml-step.current { color: var(--ml-ink); font-weight: 600; }
+.ml-step.current .ml-step-dot { border-color: var(--ml-green); color: var(--ml-green); }
+.ml-step.done { color: var(--ml-muted); }
+.ml-step.done .ml-step-dot { background: var(--ml-green); border-color: var(--ml-green); color: #fff; }
+
+/* ---------- Glossary tooltip trigger ---------- */
+.ml-gloss { color: var(--ml-muted); vertical-align: baseline; }
+.ml-gloss:hover, .ml-gloss:focus { color: var(--ml-green); }
+.ml-gloss[aria-expanded="true"] { color: var(--ml-green); }
+
+/* ---------- Global member search ---------- */
+#ml-search-input { font-size: 1.05rem; }
+#ml-search-results .list-group-item { cursor: default; }
+#ml-search-results .btn { white-space: nowrap; }
+kbd { background: #eef0f2; color: #374151; border-radius: .25rem; padding: 0 .35em; }
+
+/* ---------- Sticky summary bars (phones; hidden on desktop via .d-lg-none, never printed) ---------- */
+.ml-sticky-bar {
+  background: #fff; border-top: 1px solid var(--ml-line);
+  box-shadow: 0 -3px 10px rgba(16, 24, 40, .08);
+  padding: .6rem .25rem;
+}
+@media (max-width: 991.98px) {
+  .ml-sticky-bar { position: fixed; bottom: 0; left: 0; right: 0; z-index: 1030; margin-bottom: 0 !important; }
+  body.has-ml-sticky-bar { padding-bottom: 84px; } /* keep the footer and submit buttons clear of the bar */
+}
+@media print {
+  .ml-sticky-bar { display: none !important; }
+}
+
+/* ---------- Larger touch targets on phones ---------- */
+@media (max-width: 767.98px) {
+  .btn-sm, .btn-xs { padding: .45rem .85rem; font-size: .95rem; }
+  .btn-xs { min-width: 38px; min-height: 38px; }
+  .form-control, .custom-select { font-size: 1rem; }
+  .ml-steps { gap: .35rem 1rem; }
+  .ml-step { font-size: .85rem; }
+}
+
+/* ---------- Error summary ---------- */
+#error-summary a { color: inherit; text-decoration: underline; font-weight: 600; }
+#error-summary a:focus { outline: 2px solid var(--ml-ink); outline-offset: 2px; border-radius: 2px; }
+
+/* Programmatic focus after navigation (receipt heading) needs no visible ring */
+#receipt-heading:focus { outline: none; }
+
+/* ---------- Reduced motion: turn off toastr/modal/spinner animation (WCAG 2.3.3) ---------- */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+    scroll-behavior: auto !important;
+  }
+  .toast { opacity: 1 !important; }
 }

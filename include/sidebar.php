@@ -9,6 +9,7 @@ $menu = [
     ['header' => 'Members & Savings', 'items' => [
         ['members', 'Members', 'fas fa-users', 'members'],
         ['savings', 'Savings & Share Capital', 'fas fa-piggy-bank', 'savings'],
+        ['savings_interest', 'Savings Interest', 'fas fa-percentage', 'savings_interest'],
     ]],
     ['header' => 'Lending', 'items' => [
         ['loans', 'Loans', 'fas fa-hand-holding-usd', 'loans'],
@@ -44,7 +45,7 @@ $initials = strtoupper(implode('', array_map(fn ($w) => $w[0] ?? '', array_slice
     </div>
 
     <nav class="mt-2" aria-label="Main menu">
-      <ul class="nav nav-pills nav-sidebar flex-column nav-child-indent" data-widget="treeview" role="menu">
+      <ul class="nav nav-pills nav-sidebar flex-column nav-child-indent" data-widget="treeview">
         <?php foreach ($menu as $group):
             $visible = array_filter($group['items'], fn ($i) => can($i[3], 'view'));
             if (!$visible) {

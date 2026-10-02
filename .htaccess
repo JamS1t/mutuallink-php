@@ -7,3 +7,22 @@ RedirectMatch 403 ^.*/(config|lib|database|tests|docs|include|views)/
 <FilesMatch "\.(sql|bat|md|log|ini)$">
     Require all denied
 </FilesMatch>
+
+# Compress text assets (matters most over the ngrok tunnel: ~10x less to transfer).
+# Filtered by extension — works on every Apache 2.4 build (2.4.65 removed AddOutputFilterByType).
+AddOutputFilter DEFLATE css js json svg html xml txt
+# PHP pages: let PHP gzip its own output too (covers the dynamic HTML)
+<IfModule mod_php.c>
+</IfModule>
+
+# Cache static assets in the browser so only the FIRST visit pays the tunnel latency
+<IfModule mod_expires.c>
+    ExpiresActive On
+    ExpiresByType text/css "access plus 1 month"
+    ExpiresByType application/javascript "access plus 1 month"
+    ExpiresByType image/png "access plus 1 month"
+    ExpiresByType image/jpeg "access plus 1 month"
+    ExpiresByType image/svg+xml "access plus 1 month"
+    ExpiresByType font/woff2 "access plus 1 year"
+    ExpiresByType font/woff "access plus 1 year"
+</IfModule>

@@ -18,6 +18,8 @@ $productId = filter_var($body['product_id'] ?? null, FILTER_VALIDATE_INT, ['opti
 $term = filter_var($body['term_months'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1, 'max_range' => 60]]);
 $principalRaw = is_scalar($body['principal'] ?? null) ? str_replace(',', '', (string) $body['principal']) : '';
 $principal = preg_match('/^\d+(\.\d{1,2})?$/', $principalRaw) ? (float) $principalRaw : null;
+// Salary deduction loans fall due on the payroll dates (clarification A14)
+$payrollDue = (is_scalar($body['repayment_mode'] ?? null) ? $body['repayment_mode'] : '') === 'salary_deduction';
 
 if ($productId === false) { $errors[] = 'Select a loan product.'; }
 if ($term === false) { $errors[] = 'Term must be 1 to 60 months.'; }
@@ -45,7 +47,7 @@ if ($errors) {
 
 $schedule = array_map(
     fn ($r) => $r + ['semi_monthly' => semi_monthly($r['total_due'])],
-    build_schedule($principal, $term, (float) $product['interest_rate'], date('Y-m-d'))
+    build_schedule($principal, $term, (float) $product['interest_rate'], date('Y-m-d'), $payrollDue)
 );
 $interest = money_round(array_sum(array_column($schedule, 'interest_due')));
 $deductions = compute_deductions($principal, deduction_rates(), 0.0);

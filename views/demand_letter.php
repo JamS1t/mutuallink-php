@@ -57,15 +57,15 @@ audit_log('demand_letter', 'loans', $loanId, 'Printed demand letter · ' . money
     <?php foreach ($overdue as $o): ?>
       <tr><td>Installment <?= (int) $o['installment_no'] ?> · due <?= e(fmt_date($o['due_date'])) ?></td><td class="num"><?= e(money($o['interest'] + $o['principal'])) ?></td></tr>
     <?php endforeach; ?>
-    <?php if ($dues['pd']['months'] > 0): ?>
-      <tr><td>Interest and penalty after the term (<?= (int) $dues['pd']['months'] ?> month(s))</td><td class="num"><?= e(money($dues['pd']['interest'] + $dues['pd']['penalty'])) ?></td></tr>
+    <?php if ($dues['pd']['days'] > 0): ?>
+      <tr><td>Interest and penalty after the term (<?= (int) $dues['pd']['days'] ?> day(s))</td><td class="num"><?= e(money($dues['pd']['interest'] + $dues['pd']['penalty'])) ?></td></tr>
     <?php endif; ?>
     <tr class="font-weight-bold"><td>Total amount past due</td><td class="num"><?= e(money($pastDueAmount)) ?></td></tr>
   </table>
 
   <p>We respectfully demand that you settle this amount at the cooperative office within <strong>fifteen (15) days</strong> from receipt of this letter.
     If the loan remains unpaid after its term ends on <?= e(fmt_date($loan['maturity_date'], 'F j, Y')) ?>, the unpaid balance is charged
-    <?= e($loan['interest_rate']) ?>% interest plus a <?= e($loan['penalty_rate']) ?>% penalty per month. Failure to pay may lead the cooperative to
+    <?= e($loan['interest_rate']) ?>% interest plus a <?= e($loan['penalty_rate']) ?>% penalty per month, computed per day, on the unpaid balance and unpaid interest. Failure to pay may lead the cooperative to
     hold or proceed against the collateral submitted<?= $loan['collateral'] ? ' (' . e($loan['collateral']) . ')' : '' ?>.</p>
   <p>Your co-maker, <strong><?= e($loan['co_maker']) ?></strong>, is furnished a copy of this letter, as the co-maker is liable when the borrower fails to meet the loan obligation.</p>
   <p>If you have already paid, please disregard this letter and present your official receipt. Thank you.</p>

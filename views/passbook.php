@@ -116,7 +116,7 @@ $headerActions = implode(' ', $buttons);
               <thead><tr><th>Date</th><th>OR no.</th><th>Type</th><th class="num">Deposit</th><th class="num">Withdrawal</th><th class="num">Balance</th><th>Posted by</th><th class="no-print"></th></tr></thead>
               <tbody>
               <?php foreach ($txns as $t):
-                  $isCredit = $t['txn_type'] === 'deposit' || ($t['txn_type'] === 'reversal' && $t['orig_type'] === 'withdrawal'); ?>
+                  $isCredit = $t['txn_type'] === 'deposit' || $t['txn_type'] === 'interest' || ($t['txn_type'] === 'reversal' && $t['orig_type'] === 'withdrawal'); ?>
                 <tr class="<?= $t['reversed'] ? 'text-muted' : '' ?>">
                   <td class="text-nowrap"><?= e(fmt_date($t['txn_date'])) ?></td>
                   <td class="text-nowrap">
@@ -137,7 +137,7 @@ $headerActions = implode(' ', $buttons);
                         <?= csrf_field() ?>
                         <input type="hidden" name="action" value="reverse">
                         <input type="hidden" name="txn_id" value="<?= (int) $t['txn_id'] ?>">
-                        <button type="submit" class="btn btn-xs btn-outline-danger" title="Reverse"><i class="fas fa-undo"></i></button>
+                        <button type="submit" class="btn btn-xs btn-outline-danger" title="<?= e(t('reverse')) ?>" aria-label="<?= e(t('reverse')) ?> this entry of <?= e(money($t['amount'])) ?> on <?= e(fmt_date($t['txn_date'])) ?>"><i class="fas fa-undo" aria-hidden="true"></i></button>
                       </form>
                     <?php endif; ?>
                   </td>
@@ -148,6 +148,13 @@ $headerActions = implode(' ', $buttons);
           </div>
         <?php endif; ?>
       </div>
+    </div>
+    <?php // Phone-friendly sticky balance: the ledger scrolls, the balance and the main action stay reachable ?>
+    <div class="ml-sticky-bar d-lg-none d-flex align-items-center justify-content-between px-3 mb-3">
+      <div><span class="kpi-label">Balance</span><div class="kpi-value mb-0"><?= e(money($acct['balance'])) ?></div></div>
+      <?php if (can('savings_txn', 'create') && $acct['status'] === 'active'): ?>
+        <a href="dashboard.php?page=savings_post&id=<?= $id ?>" class="btn btn-primary"><i class="fas fa-exchange-alt mr-1" aria-hidden="true"></i> Post transaction</a>
+      <?php endif; ?>
     </div>
   </div>
   <div class="col-lg-3">

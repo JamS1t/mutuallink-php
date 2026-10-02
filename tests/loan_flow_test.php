@@ -63,26 +63,34 @@ check('stockshare credited to share capital', val("SELECT balance FROM savings_a
 check('release uses no OR number', (int) val("SELECT setting_value FROM settings WHERE setting_key = 'or_counter'"), $orBefore);
 check('3 installments, total interest 600', val('SELECT SUM(interest_due) FROM amortization_schedule WHERE loan_id = ?', [$loanId]), 600.00);
 
-// Term is surpassed: 1 month × (3% + 4%) on the unpaid 10,000 = 300 interest + 400 penalty
+// Term is surpassed: charges accrue PER DAY (A2) on the unpaid principal + unpaid
+// interest (A3) = 10,000 + 600 = 10,600, at 3%/30 and 4%/30 per day
 $today = date('Y-m-d');
+$maturity = (string) val('SELECT MAX(due_date) FROM amortization_schedule WHERE loan_id = ?', [$loanId]);
+$daysPast = (int) (new DateTimeImmutable($maturity))->diff(new DateTimeImmutable($today))->days;
 $dues = loan_dues(loan_for_payment($loanId), unpaid_installments($loanId), $today);
-check('after-term months', $dues['pd']['months'], 1);
-check('after-term interest', $dues['pd']['interest'], 300.00);
-check('after-term penalty', $dues['pd']['penalty'], 400.00);
-check('payoff = 700 charges + 600 interest + 10,000', $dues['payoff'], 11300.00);
-expect_domain_error('more than payoff refused', fn () => post_loan_payment($loanId, 11300.01, $today, 'cash'));
+check('after-term days', $dues['pd']['days'], $daysPast);
+check('after-term interest', $dues['pd']['interest'], money_round(10600 * 3 / 100 / 30 * $daysPast));
+check('after-term penalty', $dues['pd']['penalty'], money_round(10600 * 4 / 100 / 30 * $daysPast));
+check('payoff = charges + 600 interest + 10,000', $dues['payoff'],
+    money_round($dues['pd']['penalty'] + $dues['pd']['interest'] + 600 + 10000));
+expect_domain_error('more than payoff refused', fn () => post_loan_payment($loanId, $dues['payoff'] + 0.01, $today, 'cash'));
 expect_domain_error('future date refused', fn () => post_loan_payment($loanId, 100, date('Y-m-d', strtotime('+1 day')), 'cash'));
 
-// Partial payment: penalty first, then after-term interest
+// Partial payment ₱500: penalty first, then after-term interest, then the installment
+$pen = (float) $dues['pd']['penalty'];
+$pdi = (float) $dues['pd']['interest'];
+$p1Pdi = min(money_round(500.00 - $pen), $pdi);
 $p1 = post_loan_payment($loanId, 500.00, $today, 'cash');
-check('p1: penalty 400', $p1['lines'][0]['penalty'], 400.00);
-check('p1: after-term interest 100', $p1['lines'][0]['pd_interest'], 100.00);
-check('loan pd_penalty_paid', val('SELECT pd_penalty_paid FROM loans WHERE loan_id = ?', [$loanId]), 400.00);
-check('loan pd_interest_paid', val('SELECT pd_interest_paid FROM loans WHERE loan_id = ?', [$loanId]), 100.00);
+check('p1: penalty first', $p1['lines'][0]['penalty'], $pen);
+check('p1: after-term interest second', $p1['lines'][0]['pd_interest'], $p1Pdi);
+check('loan pd_penalty_paid', val('SELECT pd_penalty_paid FROM loans WHERE loan_id = ?', [$loanId]), min(500.00, $pen));
+check('loan pd_interest_paid', val('SELECT pd_interest_paid FROM loans WHERE loan_id = ?', [$loanId]), $p1Pdi);
 
 // Full payoff with ONE official receipt covering all 3 installments (no rebate)
 $dues = loan_dues(loan_for_payment($loanId), unpaid_installments($loanId), $today);
-check('remaining payoff', $dues['payoff'], 10800.00);
+$sumRem = (float) val('SELECT SUM(total_due - principal_paid - interest_paid) FROM amortization_schedule WHERE loan_id = ?', [$loanId]);
+check('remaining payoff', $dues['payoff'], money_round($dues['pd']['penalty'] + $dues['pd']['interest'] + $sumRem));
 $p2 = post_loan_payment($loanId, $dues['payoff'], $today, 'cash');
 check('p2 covers 3 installments', count($p2['lines']), 3);
 check('one OR, three lines', val('SELECT COUNT(*) FROM payments WHERE or_no = ?', [$p2['or_no']]), 3);
@@ -96,7 +104,7 @@ void_payment($p2['payment_id'], 'Encoding error');
 check('void restores outstanding', val('SELECT outstanding_balance FROM loans WHERE loan_id = ?', [$loanId]), 10000.00);
 check('void reopens loan', val('SELECT status FROM loans WHERE loan_id = ?', [$loanId]), 'released');
 check('void restores installments', val("SELECT COUNT(*) FROM amortization_schedule WHERE loan_id = ? AND status = 'unpaid'", [$loanId]), 3);
-check('void keeps p1 charges', val('SELECT pd_interest_paid FROM loans WHERE loan_id = ?', [$loanId]), 100.00);
+check('void keeps p1 charges', val('SELECT pd_interest_paid FROM loans WHERE loan_id = ?', [$loanId]), $p1Pdi);
 check('all 3 lines void', val("SELECT COUNT(*) FROM payments WHERE or_no = ? AND status = 'void'", [$p2['or_no']]), 3);
 expect_domain_error('void twice refused', fn () => void_payment($p2['payment_id'], 'again'));
 
@@ -106,13 +114,14 @@ check('advance covers 2 installments', count($p3['lines']), 2);
 check('installment 1 paid', val('SELECT status FROM amortization_schedule WHERE loan_id = ? AND installment_no = 1', [$loanId]), 'paid');
 check('installment 2 partial', val('SELECT status FROM amortization_schedule WHERE loan_id = ? AND installment_no = 2', [$loanId]), 'partial');
 
-// Renewal: a new loan offsets the old loan's remaining principal
+// Renewal: the new loan offsets the old loan's remaining principal PLUS its interest due (A7)
 $pdo->exec("INSERT INTO loans (member_id, product_id, principal, term_months, date_applied, date_approved, co_maker, status, created_by, approved_by)
             VALUES ($memberId, 1, 20000, 6, CURDATE(), CURDATE(), 'Co Maker', 'approved', 3, 1)");
 $renewId = (int) $pdo->lastInsertId();
 $prevBalance = (float) val('SELECT outstanding_balance FROM loans WHERE loan_id = ?', [$loanId]);
+$prevInterest = (float) val("SELECT COALESCE(SUM(interest_due - interest_paid), 0) FROM amortization_schedule WHERE loan_id = ? AND status <> 'paid'", [$loanId]);
 $ren = release_loan($renewId, $today, $loanId);
-check('renewal net = 20,000 - 1,342 fees - previous balance', $ren['net'], money_round(20000 - 1342 - $prevBalance));
+check('renewal net = 20,000 - 1,342 fees - previous principal - interest due', $ren['net'], money_round(20000 - 1342 - $prevBalance - $prevInterest));
 check('old loan paid by offset', val('SELECT status FROM loans WHERE loan_id = ?', [$loanId]), 'paid');
 check('old schedule all paid', val("SELECT COUNT(*) FROM amortization_schedule WHERE loan_id = ? AND status <> 'paid'", [$loanId]), 0);
 expect_domain_error('void after renewal refused', fn () => void_payment($p3['payment_id'], 'late'));

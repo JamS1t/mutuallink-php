@@ -22,6 +22,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && input('action') === 'open_account')
                 ->execute([':m' => $memberId, ':t' => $type]);
             $sid = (int) db()->lastInsertId();
             audit_log('create', 'savings_accounts', $sid, ACCOUNT_TYPES[$type] . " for $memberNo");
+            if ($selected) {
+                remember_member_served($memberId, $selected['last_name'] . ', ' . $selected['first_name'], $memberNo);
+            }
             flash('success', ACCOUNT_TYPES[$type] . " account opened for $memberNo.");
             redirect('dashboard.php?page=passbook&id=' . $sid);
         } catch (PDOException $e) {
@@ -66,7 +69,23 @@ $accounts = $stmt->fetchAll();
 
 $totals = db()->query("SELECT account_type, COUNT(*) AS n, COALESCE(SUM(balance),0) AS total FROM savings_accounts WHERE status = 'active' GROUP BY account_type")
     ->fetchAll(PDO::FETCH_UNIQUE);
+$errors = take_field_errors();
+$recent = recent_members();
 ?>
+<?php if ($recent && (can('savings_txn', 'create') || can('savings', 'create'))): ?>
+  <div class="card mb-3">
+    <div class="card-body py-2">
+      <div class="d-flex flex-wrap align-items-center">
+        <span class="kpi-label mr-2">Served today</span>
+        <?php foreach ($recent as $r): ?>
+          <a href="dashboard.php?page=member_view&id=<?= (int) $r['member_id'] ?>" class="btn btn-sm btn-light border mr-2 mb-1" title="<?= e($r['name']) ?> · <?= e($r['no']) ?>">
+            <i class="fas fa-user mr-1" aria-hidden="true"></i><?= e($r['name']) ?>
+          </a>
+        <?php endforeach; ?>
+      </div>
+    </div>
+  </div>
+<?php endif; ?>
 <div class="row">
   <?php foreach (ACCOUNT_TYPES as $k => $v): $t = $totals[$k] ?? ['n' => 0, 'total' => 0]; ?>
     <div class="col-sm-6 col-xl-3 mb-3">
@@ -135,13 +154,15 @@ $totals = db()->query("SELECT account_type, COUNT(*) AS n, COALESCE(SUM(balance)
             <?php else: ?>
               <form method="post" action="" class="ml-form">
                 <?= csrf_field() ?>
+                <?= error_summary($errors) ?>
                 <input type="hidden" name="action" value="open_account">
                 <input type="hidden" name="member_id" value="<?= (int) $selected['member_id'] ?>">
                 <div class="form-group">
                   <label for="account_type">Account type</label>
-                  <select class="custom-select" id="account_type" name="account_type">
+                  <select class="custom-select<?= invalid_class($errors, 'account_type') ?>" id="account_type" name="account_type"<?= invalid_attrs($errors, 'account_type') ?>>
                     <?php foreach ($openTypes as $t): ?><option value="<?= e($t) ?>"><?= e(ACCOUNT_TYPES[$t]) ?></option><?php endforeach; ?>
                   </select>
+                  <?= field_feedback($errors, 'account_type') ?>
                 </div>
                 <button type="submit" class="btn btn-primary btn-block"><i class="fas fa-check mr-1"></i> Open account</button>
               </form>

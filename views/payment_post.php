@@ -18,6 +18,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } else {
         try {
             $res = post_loan_payment($loanId, $amount, $date, $mode);
+            $payLoan = loan_for_payment($loanId);
+            if ($payLoan) {
+                remember_member_served((int) $payLoan['member_id'], (string) $payLoan['member_name'], (string) $payLoan['member_no']);
+            }
             flash('success', 'Payment posted. OR ' . $res['or_no'] . ' covers ' . count($res['lines']) . ' installment(s) · remaining principal '
                 . money($res['remaining']) . ($res['remaining'] <= 0 ? ' — loan fully paid!' : '.'));
             redirect('dashboard.php?page=receipt&id=' . $res['payment_id']);
@@ -59,7 +63,27 @@ if ($loan && $loan['status'] === 'released') {
     $headerActions = '<a href="dashboard.php?page=loan_view&id=' . (int) $loan['loan_id'] . '" class="btn btn-light"><i class="fas fa-file-invoice mr-1"></i> Loan record</a>';
 }
 ?>
+<?php
+$errors = take_field_errors();
+$recent = recent_members();
+?>
 <?php if (!$loan): ?>
+  <?= steps_nav(['Find the member', 'Choose the loan', t('post') . ' payment'], $member ? 1 : 0) ?>
+  <?= error_summary($errors) // e.g. a failed POST without a loan id still reports the amount problem ?>
+  <?php if ($recent && can('payments', 'create')): ?>
+    <div class="card mb-3">
+      <div class="card-body py-2">
+        <div class="d-flex flex-wrap align-items-center">
+          <span class="kpi-label mr-2">Served today</span>
+          <?php foreach ($recent as $r): ?>
+            <a href="dashboard.php?page=payment_post&member_id=<?= (int) $r['member_id'] ?>" class="btn btn-sm btn-light border mr-2 mb-1" title="<?= e($r['name']) ?> · <?= e($r['no']) ?>">
+              <i class="fas fa-user mr-1" aria-hidden="true"></i><?= e($r['name']) ?>
+            </a>
+          <?php endforeach; ?>
+        </div>
+      </div>
+    </div>
+  <?php endif; ?>
   <div class="row">
     <div class="col-lg-6">
       <div class="card card-primary card-outline">
@@ -97,49 +121,69 @@ if ($loan && $loan['status'] === 'released') {
     $cur = $dues['current'];
     $allocData = ['penalty' => $dues['pd']['penalty'], 'pd_interest' => $dues['pd']['interest'],
         'installments' => array_map(fn ($r) => ['no' => $r['installment_no'], 'interest' => $r['interest'], 'principal' => $r['principal']], $dues['remaining'])]; ?>
+  <?= steps_nav(['Find the member', 'Choose the loan', t('post') . ' payment'], 2) ?>
   <div class="row">
     <div class="col-lg-7">
       <div class="card card-primary card-outline">
         <div class="card-header"><h3 class="card-title"><i class="fas fa-cash-register mr-2"></i>Receive payment · installment <?= (int) $cur['installment_no'] ?> due <?= e(fmt_date($cur['due_date'])) ?></h3></div>
-        <form method="post" action="dashboard.php?page=payment_post&loan_id=<?= (int) $loan['loan_id'] ?>&as_of=<?= e($payDate) ?>" class="ml-form" novalidate>
+        <form method="post" action="dashboard.php?page=payment_post&loan_id=<?= (int) $loan['loan_id'] ?>&as_of=<?= e($payDate) ?>" class="ml-form" novalidate data-dirty-guard>
           <?= csrf_field() ?>
+          <?= error_summary($errors) ?>
           <input type="hidden" name="loan_id" value="<?= (int) $loan['loan_id'] ?>">
           <input type="hidden" name="payment_date" value="<?= e($payDate) ?>">
           <div class="card-body">
             <div class="form-group">
               <label for="payment-amount">Amount received (₱) <span class="text-danger">*</span></label>
-              <input type="text" inputmode="decimal" class="form-control form-control-lg" id="payment-amount" name="amount" required autofocus
-                     value="<?= e(old('amount')) ?>" placeholder="0.00" data-alloc="<?= e(json_encode($allocData)) ?>" data-payoff="<?= e($dues['payoff']) ?>">
-              <div class="mt-1">
-                <button type="button" class="btn btn-sm btn-light" data-fill-amount="<?= e(number_format($dues['current_total'], 2, '.', '')) ?>">Amount due now · <?= e(money($dues['current_total'])) ?></button>
-                <?php if ($cur): ?><button type="button" class="btn btn-sm btn-light" data-fill-amount="<?= e(number_format(semi_monthly($dues['current_total']), 2, '.', '')) ?>">Semi-monthly · <?= e(money(semi_monthly($dues['current_total']))) ?></button><?php endif; ?>
-                <button type="button" class="btn btn-sm btn-light" data-fill-amount="<?= e(number_format($dues['payoff'], 2, '.', '')) ?>">Full payoff · <?= e(money($dues['payoff'])) ?></button>
+              <input type="text" inputmode="decimal" class="form-control form-control-lg<?= invalid_class($errors, 'amount') ?>" id="payment-amount" name="amount" required autofocus
+                     value="<?= e(old('amount')) ?>" placeholder="0.00" data-alloc="<?= e(json_encode($allocData)) ?>" data-payoff="<?= e($dues['payoff']) ?>"<?= invalid_attrs($errors, 'amount') ?>>
+              <?= field_feedback($errors, 'amount') ?>
+              <div class="mt-2">
+                <span class="small font-weight-bold text-muted text-uppercase d-block mb-1">Quick fill — tap to enter the amount</span>
+                <button type="button" class="btn btn-sm btn-outline-primary mr-1 mb-1" data-fill-amount="<?= e(number_format($dues['current_total'], 2, '.', '')) ?>">
+                  <i class="fas fa-cash-register mr-1"></i><?= e(t('due')) ?> now · <strong><?= e(money($dues['current_total'])) ?></strong>
+                </button>
+                <?php if ($cur): ?><button type="button" class="btn btn-sm btn-outline-primary mr-1 mb-1" data-fill-amount="<?= e(number_format(semi_monthly($dues['current_total']), 2, '.', '')) ?>">
+                  <i class="fas fa-divide mr-1"></i>Semi-monthly · <strong><?= e(money(semi_monthly($dues['current_total']))) ?></strong>
+                </button><?php endif; ?>
+                <button type="button" class="btn btn-sm btn-outline-success mb-1" data-fill-amount="<?= e(number_format($dues['payoff'], 2, '.', '')) ?>">
+                  <i class="fas fa-check-double mr-1"></i><?= e(t('payoff')) ?> · <strong><?= e(money($dues['payoff'])) ?></strong>
+                </button>
               </div>
             </div>
             <div class="form-group">
               <label for="mode">Mode of payment</label>
-              <select class="custom-select" id="mode" name="mode">
+              <select class="custom-select<?= invalid_class($errors, 'mode') ?>" id="mode" name="mode"<?= invalid_attrs($errors, 'mode') ?>>
                 <?php foreach (REPAYMENT_MODES as $k => $v): ?><option value="<?= e($k) ?>" <?= old('mode', $loan['repayment_mode']) === $k ? 'selected' : '' ?>><?= e($v) ?></option><?php endforeach; ?>
               </select>
+              <?= field_feedback($errors, 'mode') ?>
             </div>
             <h4 class="h6 text-muted text-uppercase small mt-3">How this payment will be applied</h4>
             <table class="table table-sm mb-2">
-              <tr><td>1. Penalty (after term)</td><td class="num" id="split-penalty">₱ 0.00</td></tr>
-              <tr><td>2. Interest</td><td class="num" id="split-interest">₱ 0.00</td></tr>
-              <tr><td>3. Principal</td><td class="num" id="split-principal">₱ 0.00</td></tr>
-              <tr class="text-muted"><td>Installments covered</td><td class="num" id="split-installments">—</td></tr>
+              <thead><tr><th scope="col">Applied to</th><th scope="col" class="num">Amount</th></tr></thead>
+              <tbody>
+                <tr><th scope="row">1. Penalty (after term)</th><td class="num" id="split-penalty">₱ 0.00</td></tr>
+                <tr><th scope="row">2. Interest</th><td class="num" id="split-interest">₱ 0.00</td></tr>
+                <tr><th scope="row">3. Principal</th><td class="num" id="split-principal">₱ 0.00</td></tr>
+                <tr class="text-muted"><th scope="row">Installments covered</th><td class="num" id="split-installments">—</td></tr>
+              </tbody>
             </table>
             <div id="split-excess" class="alert alert-warning small mb-0" role="alert" hidden></div>
           </div>
           <div class="card-footer bg-white">
-            <button type="submit" class="btn btn-primary btn-lg"><i class="fas fa-check mr-1"></i> Post payment and issue OR</button>
+            <button type="submit" class="btn btn-primary btn-lg"><i class="fas fa-check mr-1"></i> <?= e(t('post')) ?> payment and issue OR</button>
           </div>
         </form>
+        <?php if ($dues['current_total'] > 0): ?>
+          <div class="ml-sticky-bar d-lg-none d-flex align-items-center justify-content-between px-3">
+            <div><span class="kpi-label"><?= e(t('due')) ?> now</span><div class="kpi-value mb-0"><?= e(money($dues['current_total'])) ?></div></div>
+            <button type="button" class="btn btn-primary" data-focus="#payment-amount"><i class="fas fa-cash-register mr-1"></i> Enter amount</button>
+          </div>
+        <?php endif; ?>
       </div>
     </div>
     <div class="col-lg-5">
       <div class="card">
-        <div class="card-header"><h3 class="card-title">Due as of <?= e(fmt_date($payDate)) ?></h3></div>
+        <div class="card-header"><h3 class="card-title"><?= e(t('due')) ?> as of <?= e(fmt_date($payDate)) ?></h3></div>
         <div class="card-body">
           <form method="get" action="dashboard.php" class="form-inline mb-3">
             <input type="hidden" name="page" value="payment_post">
@@ -148,22 +192,25 @@ if ($loan && $loan['status'] === 'released') {
             <input type="date" id="as_of" name="as_of" class="form-control form-control-sm mr-2" min="<?= e($loan['date_released']) ?>" max="<?= e(date('Y-m-d')) ?>" value="<?= e($payDate) ?>">
             <button class="btn btn-sm btn-outline-primary">Recompute</button>
           </form>
-          <?php if ($dues['pd']['months'] > 0): ?>
-            <div class="alert alert-danger small"><i class="fas fa-exclamation-triangle mr-1"></i>The loan term ended <?= e(fmt_date($loan['maturity_date'])) ?> (<?= (int) $dues['pd']['months'] ?> month(s) ago).
-              The unpaid balance is charged <?= e($loan['interest_rate']) ?>% interest + <?= e($loan['penalty_rate']) ?>% penalty per month.</div>
+          <?php if ($dues['pd']['days'] > 0): ?>
+            <div class="alert alert-danger small"><i class="fas fa-exclamation-triangle mr-1"></i>The loan term ended <?= e(fmt_date($loan['maturity_date'])) ?> (<?= (int) $dues['pd']['days'] ?> day(s) ago).
+              The unpaid balance plus unpaid interest is charged <?= e($loan['interest_rate']) ?>% interest + <?= e($loan['penalty_rate']) ?>% penalty per month, computed per day after the term.</div>
           <?php elseif ($cur['due_date'] < $payDate): ?>
             <div class="alert alert-warning small">Installment <?= (int) $cur['installment_no'] ?> is overdue. Penalties apply only after the term ends on <?= e(fmt_date($loan['maturity_date'])) ?>.</div>
           <?php endif; ?>
           <table class="table table-sm mb-0">
-            <?php if ($dues['pd']['months'] > 0): ?>
-              <tr><td>Penalty (after term)</td><td class="num"><?= e(money($dues['pd']['penalty'])) ?></td></tr>
-              <tr><td>Interest (after term)</td><td class="num"><?= e(money($dues['pd']['interest'])) ?></td></tr>
+            <thead><tr><th scope="col">Component</th><th scope="col" class="num">Amount</th></tr></thead>
+            <tbody>
+            <?php if ($dues['pd']['days'] > 0): ?>
+              <tr><th scope="row">Penalty (after term)</th><td class="num"><?= e(money($dues['pd']['penalty'])) ?></td></tr>
+              <tr><th scope="row">Interest (after term)</th><td class="num"><?= e(money($dues['pd']['interest'])) ?></td></tr>
             <?php endif; ?>
-            <tr><td>Interest · inst. <?= (int) $cur['installment_no'] ?></td><td class="num"><?= e(money($cur['interest'])) ?></td></tr>
-            <tr><td>Principal · inst. <?= (int) $cur['installment_no'] ?></td><td class="num"><?= e(money($cur['principal'])) ?></td></tr>
-            <tr class="font-weight-bold border-top"><td>Due now</td><td class="num h5 mb-0"><?= e(money($dues['current_total'])) ?></td></tr>
-            <tr><td class="text-muted">Full payoff (no rebate)</td><td class="num text-muted"><?= e(money($dues['payoff'])) ?></td></tr>
-            <tr><td class="text-muted">Outstanding principal</td><td class="num text-muted"><?= e(money($loan['outstanding_balance'])) ?></td></tr>
+            <tr><th scope="row">Interest · inst. <?= (int) $cur['installment_no'] ?></th><td class="num"><?= e(money($cur['interest'])) ?></td></tr>
+            <tr><th scope="row">Principal · inst. <?= (int) $cur['installment_no'] ?></th><td class="num"><?= e(money($cur['principal'])) ?></td></tr>
+            <tr class="font-weight-bold border-top"><th scope="row"><?= e(t('due')) ?> now</th><td class="num h5 mb-0"><?= e(money($dues['current_total'])) ?></td></tr>
+            <tr><th scope="row" class="text-muted">Full <?= e(t('payoff')) ?> (no rebate)</th><td class="num text-muted"><?= e(money($dues['payoff'])) ?></td></tr>
+            <tr><th scope="row" class="text-muted">Outstanding principal</th><td class="num text-muted"><?= e(money($loan['outstanding_balance'])) ?></td></tr>
+            </tbody>
           </table>
         </div>
       </div>

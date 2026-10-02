@@ -75,7 +75,7 @@ $date = $r['payment_date'] ?? $r['txn_date'] ?? $r['membership_fee_date'];
 <div class="print-doc receipt">
   <div class="print-head">
     <img src="dist/img/logo-96.png" alt="" width="40" height="40" class="mb-1">
-    <h2>FRANCISCAN FRIENDS MULTI-PURPOSE COOPERATIVE</h2>
+    <h2 id="receipt-heading" tabindex="-1">FRANCISCAN FRIENDS MULTI-PURPOSE COOPERATIVE</h2>
     <p>Andres Bonifacio, Zone 1, Baybay City, Leyte</p>
     <p class="mt-2 font-weight-bold">OFFICIAL RECEIPT</p>
   </div>

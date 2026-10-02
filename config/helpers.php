@@ -13,7 +13,9 @@ const ACCOUNT_TYPES = [
     'time_deposit'     => 'Time Deposit',
 ];
 
-// Only these accounts allow withdrawals; share capital and CBU are withdrawal-locked.
+// Only these accounts allow over-the-counter withdrawals. Share capital can also be
+// withdrawn, but only with the approval of the Board of Directors (clarification A18,
+// enforced in savings_post.php); capital build-up is withdrawal-locked.
 const WITHDRAWABLE = ['regular_savings', 'time_deposit'];
 
 const LOANABLE_BASIS = ['fixed' => 'Fixed minimum and maximum', 'collateral' => 'Appraised value of collateral', 'net_pay' => "Member's net pay"];
@@ -78,7 +80,7 @@ function badge(?string $status): string
         'pending' => 'warning', 'approved' => 'info', 'rejected' => 'danger', 'released' => 'primary',
         'paid' => 'success', 'cancelled' => 'secondary', 'unpaid' => 'light', 'partial' => 'warning',
         'posted' => 'success', 'void' => 'danger', 'sent' => 'success', 'failed' => 'danger',
-        'deposit' => 'success', 'withdrawal' => 'warning', 'reversal' => 'danger',
+        'deposit' => 'success', 'withdrawal' => 'warning', 'reversal' => 'danger', 'interest' => 'info',
         'upcoming' => 'info', 'overdue' => 'danger',
     ];
     $class = $map[$status] ?? 'secondary';
@@ -99,6 +101,21 @@ function take_flashes(): array
     return $messages;
 }
 
+/**
+ * Success toast with an Undo button for NON-financial actions (mark reminder sent,
+ * remove unsent reminder, edit profile). The toast carries the fields of the reverse
+ * action; mutuallink.js submits them (with a fresh CSRF token) when Undo is clicked.
+ * The message is NOT flashed separately — the undo toast itself announces it.
+ * Anything touching money, void, or reverse keeps the confirm (+reason) modal instead.
+ *
+ * @param string $url    URL the reverse action posts to (same PRG + CSRF flow)
+ * @param array<string,string> $fields POST fields of the reverse action
+ */
+function flash_undo(string $message, string $url, array $fields): void
+{
+    $_SESSION['flash_undo'] = ['message' => $message, 'url' => $url, 'fields' => $fields];
+}
+
 function redirect(string $url): never
 {
     header('Location: ' . $url);
@@ -107,7 +124,10 @@ function redirect(string $url): never
 
 /* ---------------- Input validation (Error Accumulator pattern) ----------------
  * Each helper validates one field, appends a message to $errors on failure,
- * and returns the clean value. Input is validated, not "sanitized";
+ * and returns the clean value. Messages are recorded under the FIELD KEY so the
+ * re-rendered form can show them inline next to the input (error_summary() and
+ * field_feedback()); cross-field rules added as plain strings fall back to the
+ * error summary and Toastr. Input is validated, not "sanitized";
  * escaping happens on output with e().
  */
 
@@ -129,9 +149,9 @@ function req(array &$errors, string $key, string $label, int $max = 255): string
 {
     $v = input($key);
     if ($v === '') {
-        $errors[] = "$label is required.";
+        $errors[$key] = "$label is required.";
     } elseif (mb_strlen($v) > $max) {
-        $errors[] = "$label must be at most $max characters.";
+        $errors[$key] = "$label must be at most $max characters.";
     }
     return $v;
 }
@@ -140,7 +160,7 @@ function opt(array &$errors, string $key, string $label, int $max = 255): ?strin
 {
     $v = input($key);
     if ($v !== '' && mb_strlen($v) > $max) {
-        $errors[] = "$label must be at most $max characters.";
+        $errors[$key] = "$label must be at most $max characters.";
     }
     return $v === '' ? null : $v;
 }
@@ -150,12 +170,12 @@ function pattern_in(array &$errors, string $key, string $label, string $regex, s
     $v = input($key);
     if ($v === '') {
         if ($required) {
-            $errors[] = "$label is required.";
+            $errors[$key] = "$label is required.";
         }
         return null;
     }
     if (!preg_match($regex, $v)) {
-        $errors[] = "$label $hint";
+        $errors[$key] = "$label $hint";
     }
     return $v;
 }
@@ -165,12 +185,12 @@ function email_in(array &$errors, string $key, string $label, bool $required = f
     $v = input($key);
     if ($v === '') {
         if ($required) {
-            $errors[] = "$label is required.";
+            $errors[$key] = "$label is required.";
         }
         return null;
     }
     if (filter_var($v, FILTER_VALIDATE_EMAIL) === false || mb_strlen($v) > 150) {
-        $errors[] = "$label must be a valid email address.";
+        $errors[$key] = "$label must be a valid email address.";
     }
     return $v;
 }
@@ -181,17 +201,17 @@ function money_in(array &$errors, string $key, string $label, bool $required = t
     $v = str_replace(',', '', input($key));
     if ($v === '') {
         if ($required) {
-            $errors[] = "$label is required.";
+            $errors[$key] = "$label is required.";
         }
         return null;
     }
     if (!preg_match('/^\d+(\.\d{1,2})?$/', $v) || filter_var($v, FILTER_VALIDATE_FLOAT) === false) {
-        $errors[] = "$label must be an amount with up to 2 decimals.";
+        $errors[$key] = "$label must be an amount with up to 2 decimals.";
         return null;
     }
     $f = (float) $v;
     if ($f < $min || $f > $max) {
-        $errors[] = "$label must be between " . number_format($min, 2) . ' and ' . number_format($max, 2) . '.';
+        $errors[$key] = "$label must be between " . number_format($min, 2) . ' and ' . number_format($max, 2) . '.';
     }
     return $f;
 }
@@ -200,7 +220,7 @@ function int_in(array &$errors, string $key, string $label, int $min, int $max):
 {
     $v = filter_var(input($key), FILTER_VALIDATE_INT, ['options' => ['min_range' => $min, 'max_range' => $max]]);
     if ($v === false) {
-        $errors[] = "$label must be a whole number from $min to $max.";
+        $errors[$key] = "$label must be a whole number from $min to $max.";
         return null;
     }
     return $v;
@@ -211,13 +231,13 @@ function date_in(array &$errors, string $key, string $label, bool $required = tr
     $v = input($key);
     if ($v === '') {
         if ($required) {
-            $errors[] = "$label is required.";
+            $errors[$key] = "$label is required.";
         }
         return null;
     }
     $d = DateTime::createFromFormat('!Y-m-d', $v);
     if (!$d || $d->format('Y-m-d') !== $v) {
-        $errors[] = "$label must be a valid date.";
+        $errors[$key] = "$label must be a valid date.";
         return null;
     }
     return $v;
@@ -228,7 +248,7 @@ function enum_in(array &$errors, string $key, string $label, array $allowed): st
 {
     $v = input($key);
     if (!in_array($v, $allowed, true)) {
-        $errors[] = "Please select a valid $label.";
+        $errors[$key] = "Please select a valid $label.";
     }
     return $v;
 }
@@ -346,12 +366,177 @@ function db_failure(Throwable $e): void
     flash('error', 'Something went wrong; nothing was saved. Please try again.');
 }
 
-/** Moves validation errors into flash messages (all shown at once). */
+/**
+ * Moves validation errors toward the user: field-keyed messages travel to the
+ * re-rendered form as inline errors (take_field_errors()), while messages that
+ * have no field (cross-field rules) keep the Toastr fallback.
+ */
 function flash_errors(array $errors): void
 {
-    foreach ($errors as $msg) {
-        flash('error', $msg);
+    foreach ($errors as $k => $msg) {
+        if (is_int($k)) {
+            flash('error', $msg);
+        } else {
+            $_SESSION['field_errors'][$k] ??= (string) $msg;
+        }
     }
+}
+
+/** Field-keyed errors for the form being rendered; clears the one-shot store. */
+function take_field_errors(): array
+{
+    $fields = $_SESSION['field_errors'] ?? [];
+    unset($_SESSION['field_errors']);
+    return $fields;
+}
+
+/** DOM id of a field's inline message — the target of the error summary links. */
+function field_error_id(string $key): string
+{
+    return 'err-' . $key;
+}
+
+/** Bootstrap class marking a failed field ('' when valid). */
+function invalid_class(array $errors, string $key): string
+{
+    return isset($errors[$key]) ? ' is-invalid' : '';
+}
+
+/** ARIA wiring for a failed field: aria-invalid + pointer to its message ('' when valid). */
+function invalid_attrs(array $errors, string $key): string
+{
+    return isset($errors[$key]) ? ' aria-invalid="true" aria-describedby="' . field_error_id($key) . '"' : '';
+}
+
+/** The inline message under an input ('' when the field is valid). d-block: radio
+ * groups and input-groups have no .is-invalid sibling for Bootstrap's own display rule. */
+function field_feedback(array $errors, string $key): string
+{
+    return isset($errors[$key])
+        ? '<div class="invalid-feedback d-block" id="' . field_error_id($key) . '">' . e($errors[$key]) . '</div>'
+        : '';
+}
+
+/** Error summary block: anchor-linked list at the top of the form ('' when no errors). */
+function error_summary(array $errors): string
+{
+    if (!$errors) {
+        return '';
+    }
+    $items = '';
+    foreach ($errors as $k => $msg) {
+        $msg = e((string) $msg);
+        $items .= is_int($k)
+            ? '<li>' . $msg . '</li>'
+            : '<li><a href="#' . field_error_id((string) $k) . '">' . $msg . '</a></li>';
+    }
+    return '<div id="error-summary" class="alert alert-danger" role="alert" tabindex="-1">'
+        . '<strong class="d-block mb-1"><i class="fas fa-exclamation-triangle mr-1" aria-hidden="true"></i>Please fix the following:</strong>'
+        . '<ul class="mb-0 pl-3 small">' . $items . '</ul></div>';
+}
+
+/* ---------------- Interface language (Settings toggle, default English) ----------------
+ * High-frequency verb labels only — sentences stay English so nothing gets lost
+ * in translation on financial records.
+ */
+const I18N = [
+    'en'  => ['post' => 'Post', 'void' => 'Void', 'due' => 'Due', 'payoff' => 'Payoff',
+              'withdraw' => 'Withdraw', 'reverse' => 'Reverse', 'deposit' => 'Deposit'],
+    'ceb' => ['post' => 'I-post', 'void' => 'Kanselahon', 'due' => 'Due', 'payoff' => 'Bayaran tanan',
+              'withdraw' => 'Kuhaa', 'reverse' => 'Balihon', 'deposit' => 'Ugpong'],
+    'fil' => ['post' => 'I-post', 'void' => 'Kanselahin', 'due' => 'Due', 'payoff' => 'Bayaran lahat',
+              'withdraw' => 'I-withdraw', 'reverse' => 'Baliktarin', 'deposit' => 'I-deposito'],
+];
+
+const I18N_NAMES = ['en' => 'English', 'ceb' => 'Cebuano', 'fil' => 'Filipino'];
+
+function ui_lang(): string
+{
+    $l = setting('ui_lang');
+    return isset(I18N[$l]) ? $l : 'en';
+}
+
+/** Translated high-frequency verb label ('post', 'void', 'due', 'payoff', 'withdraw', 'reverse', 'deposit'). */
+function t(string $key): string
+{
+    return I18N[ui_lang()][$key] ?? I18N['en'][$key] ?? $key;
+}
+
+/* ---------------- Glossary (cooperative jargon on the forms) ---------------- */
+
+const GLOSSARY = [
+    'stockshare'   => 'Stockshare: the share of every loan (set in Settings) that goes to the member\'s share capital — savings they own in the cooperative, deducted from the proceeds at release.',
+    'cbu'          => 'Capital Build-Up (CBU): a fixed monthly savings contribution that builds the cooperative\'s capital. CBU is withdrawal-locked.',
+    'offset'       => 'Offset: on renewal, an old loan is settled out of the new loan\'s proceeds — the remaining balance is deducted and the old loan closes.',
+    'maintaining'  => 'Maintaining balance: the minimum a regular savings account must keep. Withdrawals may not bring the balance below it.',
+    'amortization' => 'Amortization: the monthly payment schedule — every installment is part principal and part interest.',
+    'net_pay'      => 'Monthly net pay: the salary left after deductions. A Salary Loan\'s monthly amortization must not exceed it.',
+];
+
+function glossary_term(string $key): string
+{
+    return GLOSSARY[$key] ?? $key;
+}
+
+/**
+ * Focusable "?" button that explains a cooperative term on hover AND keyboard focus
+ * (a Bootstrap tooltip, with a real accessible name — not title-only).
+ */
+function glossary_btn(string $key): string
+{
+    $term = glossary_term($key);
+    $word = trim(strtok($term, ':') ?: $key);
+    return '<button type="button" class="btn btn-link ml-gloss p-0 align-baseline" data-toggle="tooltip" data-placement="top" data-boundary="window"'
+        . ' title="' . e($term) . '" aria-label="What does ' . e($word) . ' mean?"><i class="fas fa-question-circle" aria-hidden="true"></i></button>';
+}
+
+/* ---------------- Recent members (per-session, no new tables) ----------------
+ * The last members this user served TODAY, shown as a quick strip on the
+ * cashier's posting screens. Lives in $_SESSION only.
+ */
+
+function remember_member_served(int $memberId, string $name, string $memberNo): void
+{
+    if ($memberId <= 0 || $name === '') {
+        return;
+    }
+    $today = date('Y-m-d');
+    $list = $_SESSION['recent_members'] ?? ['date' => $today, 'members' => []];
+    if (($list['date'] ?? '') !== $today) {
+        $list = ['date' => $today, 'members' => []]; // a new day starts an empty strip
+    }
+    unset($list['members'][$memberId]);
+    $list['members'][$memberId] = ['name' => $name, 'no' => $memberNo];
+    $_SESSION['recent_members'] = ['date' => $today, 'members' => array_slice($list['members'], -5, null, true)];
+}
+
+/** @return list<array{member_id:int, name:string, no:string}> last served first */
+function recent_members(): array
+{
+    $list = $_SESSION['recent_members'] ?? [];
+    if (($list['date'] ?? '') !== date('Y-m-d')) {
+        return [];
+    }
+    $out = [];
+    foreach (array_reverse($list['members'] ?? [], true) as $id => $m) {
+        $out[] = ['member_id' => (int) $id, 'name' => (string) $m['name'], 'no' => (string) $m['no']];
+    }
+    return $out;
+}
+
+/* ---------------- Step indicator for multi-screen flows ---------------- */
+
+/** Progress steps (find member → choose loan → post); $current is zero-based. */
+function steps_nav(array $steps, int $current): string
+{
+    $out = '<nav aria-label="Progress"><ol class="ml-steps mb-3">';
+    foreach ($steps as $i => $label) {
+        $state = $i < $current ? 'done' : ($i === $current ? 'current' : 'todo');
+        $out .= '<li class="ml-step ' . $state . '"' . ($i === $current ? ' aria-current="step"' : '') . '>'
+            . '<span class="ml-step-dot" aria-hidden="true">' . ($i < $current ? '<i class="fas fa-check"></i>' : e((string) ($i + 1))) . '</span>'
+            . '<span class="ml-step-label">' . e($label) . '</span></li>';
+    }
+    return $out . '</ol></nav>';
 }
 
 /* ---------------- Savings posting (DFD process 3.0) ----------------

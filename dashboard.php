@@ -22,6 +22,7 @@ const ROUTES = [
     'savings'        => ['savings', 'view', 'savings'],
     'passbook'       => ['savings', 'view', 'savings'],
     'savings_post'   => ['savings_txn', 'create', 'savings'],
+    'savings_interest' => ['savings_interest', 'view', 'savings_interest'],
     'products'       => ['products', 'view', 'products'],
     'product_form'   => ['products', 'view', 'products'],
     'loans'          => ['loans', 'view', 'loans'],
@@ -74,6 +75,7 @@ try {
     require __DIR__ . '/views/403.php';
 }
 $content = ob_get_clean();
+take_field_errors(); // discard any field errors the rendered page did not consume, so they never leak into another form
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -85,11 +87,12 @@ $content = ob_get_clean();
 </body>
 <?php else: ?>
 <body class="hold-transition sidebar-mini layout-fixed layout-navbar-fixed">
+<a class="skip-link" href="#content-main">Skip to content</a>
 <div class="wrapper">
   <?php require __DIR__ . '/include/navbar.php'; ?>
   <?php require __DIR__ . '/include/sidebar.php'; ?>
 
-  <div class="content-wrapper">
+  <div class="content-wrapper" id="content-main" tabindex="-1">
     <div class="content-header">
       <div class="container-fluid">
         <div class="d-flex flex-wrap justify-content-between align-items-start">

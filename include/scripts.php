@@ -3,8 +3,11 @@ declare(strict_types=1);
 
 // Flash messages travel to Toastr as JSON in a data attribute (no inline script → strict CSP).
 $flashJson = json_encode(take_flashes(), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
+// A non-financial success action may offer one Undo (flash_undo()); mutuallink.js renders its button.
+$undoJson = json_encode($_SESSION['flash_undo'] ?? null, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
+unset($_SESSION['flash_undo']);
 ?>
-<div id="ml-flash" data-messages="<?= e($flashJson) ?>" hidden></div>
+<div id="ml-flash" data-messages="<?= e($flashJson) ?>" data-undo="<?= e($undoJson) ?>" hidden></div>
 <script src="plugins/jquery/jquery.min.js"></script>
 <script src="plugins/bootstrap/js/bootstrap.bundle.min.js"></script>
 <script src="plugins/datatables/jquery.dataTables.min.js"></script>

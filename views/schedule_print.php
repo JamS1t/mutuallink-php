@@ -80,7 +80,7 @@ $totInterest = array_sum(array_column($rows, 'interest_due'));
       </table>
     </div>
     <div class="col-6">
-      <p class="mb-1">If the loan is not fully paid when the term ends, the unpaid balance is charged <?= e($loan['interest_rate']) ?>% interest plus a <?= e($loan['penalty_rate']) ?>% penalty per month. Payments are applied to penalty, then interest, then principal. Advance or early payment has no rebate. Released in <?= e($loan['release_mode'] ?? 'cash') ?><?= $loan['check_no'] ? ' (check no. ' . e($loan['check_no']) . ')' : '' ?>.</p>
+      <p class="mb-1">If the loan is not fully paid when the term ends, the unpaid balance plus unpaid interest is charged <?= e($loan['interest_rate']) ?>% interest plus a <?= e($loan['penalty_rate']) ?>% penalty per month, computed per day. Payments are applied to penalty, then interest, then principal. Advance or early payment has no rebate. Released in <?= e($loan['release_mode'] ?? 'cash') ?><?= $loan['check_no'] ? ' (check no. ' . e($loan['check_no']) . ')' : '' ?>.</p>
     </div>
   </div>
   <div class="row small mt-5 text-center">

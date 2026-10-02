@@ -254,7 +254,7 @@ $pos = array_search($loan['status'], $order, true);
                           <?= csrf_field() ?>
                           <input type="hidden" name="action" value="void_payment">
                           <input type="hidden" name="payment_id" value="<?= (int) $p['payment_id'] ?>">
-                          <button type="submit" class="btn btn-xs btn-outline-danger"><i class="fas fa-ban"></i> Void</button>
+                          <button type="submit" class="btn btn-xs btn-outline-danger"><i class="fas fa-ban mr-1" aria-hidden="true"></i> <?= e(t('void')) ?></button>
                         </form>
                       <?php endif; ?>
                     </td>
@@ -338,7 +338,7 @@ $pos = array_search($loan['status'], $order, true);
             </div>
             <?php if ($prevLoans): ?>
               <div class="form-group">
-                <label for="prev_loan_id">Offset previous loan (renewal)</label>
+                <label for="prev_loan_id">Offset previous loan (renewal) <?= glossary_btn('offset') ?></label>
                 <select id="prev_loan_id" name="prev_loan_id" class="custom-select">
                   <option value="">None</option>
                   <?php foreach ($prevLoans as $pl): ?>
@@ -350,12 +350,12 @@ $pos = array_search($loan['status'], $order, true);
             <?php endif; ?>
             <table class="table table-sm mb-0">
               <tr><td>Principal</td><td class="num"><?= e(money($loan['principal'])) ?></td></tr>
-              <tr><td class="text-muted">Interest (not deducted in advance)</td><td class="num">− <?= e(money(0)) ?></td></tr>
-              <tr><td class="text-muted">Loan insurance</td><td class="num">− <?= e(money($previewDeductions['insurance'])) ?></td></tr>
-              <tr><td class="text-muted">Service fee</td><td class="num">− <?= e(money($previewDeductions['service_fee'])) ?></td></tr>
-              <tr><td class="text-muted">Stockshare <small>(to share capital)</small></td><td class="num">− <?= e(money($previewDeductions['stockshare'])) ?></td></tr>
-              <tr><td class="text-muted">Notarial fee</td><td class="num">− <?= e(money($previewDeductions['notarial_fee'])) ?></td></tr>
-              <tr><td class="text-muted">Others (printing)</td><td class="num">− <?= e(money($previewDeductions['other_fee'])) ?></td></tr>
+              <tr><td class="text-muted">Interest (not deducted in advance)</td><td class="num">- <?= e(money(0)) ?></td></tr>
+              <tr><td class="text-muted">Loan insurance</td><td class="num">- <?= e(money($previewDeductions['insurance'])) ?></td></tr>
+              <tr><td class="text-muted">Service fee</td><td class="num">- <?= e(money($previewDeductions['service_fee'])) ?></td></tr>
+              <tr><td class="text-muted">Stockshare <small>(to share capital)</small> <?= glossary_btn('stockshare') ?></td><td class="num">- <?= e(money($previewDeductions['stockshare'])) ?></td></tr>
+              <tr><td class="text-muted">Notarial fee</td><td class="num">- <?= e(money($previewDeductions['notarial_fee'])) ?></td></tr>
+              <tr><td class="text-muted">Others (printing)</td><td class="num">- <?= e(money($previewDeductions['other_fee'])) ?></td></tr>
               <?php if ($prevLoans): ?><tr><td class="text-muted">Previous loan</td><td class="num">if selected</td></tr><?php endif; ?>
               <tr class="font-weight-bold border-top"><td>Net proceeds</td><td class="num"><?= e(money($previewDeductions['net'])) ?></td></tr>
             </table>
@@ -373,12 +373,12 @@ $pos = array_search($loan['status'], $order, true);
         <div class="card-body">
           <p class="mb-2">Installment <?= (int) $cur['installment_no'] ?> · due <?= e(fmt_date($cur['due_date'])) ?>
             <?= $cur['due_date'] < date('Y-m-d') ? '<span class="badge badge-danger ml-1">Overdue</span>' : '' ?></p>
-          <?php if ($dues['pd']['months'] > 0): ?>
-            <div class="alert alert-danger small py-2">Term surpassed <?= (int) $dues['days_past_maturity'] ?> day(s) ago (<?= (int) $dues['pd']['months'] ?> month(s)):
-              the unpaid balance is charged <?= e($loan['interest_rate']) ?>% interest + <?= e($loan['penalty_rate']) ?>% penalty per month.</div>
+          <?php if ($dues['pd']['days'] > 0): ?>
+            <div class="alert alert-danger small py-2">Term surpassed <?= (int) $dues['pd']['days'] ?> day(s) ago:
+              the unpaid balance plus unpaid interest is charged <?= e($loan['interest_rate']) ?>% interest + <?= e($loan['penalty_rate']) ?>% penalty per month, computed per day after the term.</div>
           <?php endif; ?>
           <table class="table table-sm mb-2">
-            <?php if ($dues['pd']['months'] > 0): ?>
+            <?php if ($dues['pd']['days'] > 0): ?>
               <tr><td>Penalty (after term)</td><td class="num"><?= e(money($dues['pd']['penalty'])) ?></td></tr>
               <tr><td>Interest (after term)</td><td class="num"><?= e(money($dues['pd']['interest'])) ?></td></tr>
             <?php endif; ?>
@@ -423,3 +423,4 @@ $pos = array_search($loan['status'], $order, true);
     </div>
   </div>
 </div>
+

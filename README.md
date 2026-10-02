@@ -2,7 +2,9 @@
 
 Integrated Loan, Balance, and Savings Management System for the **Franciscan Friends Multi-Purpose Cooperative (FFMPC)**, Baybay City, Leyte.
 
-Stack (as in the paper, Ch. III): **WampServer 3.3.5** (Apache 2.4, PHP 8.2, MySQL 8.3) · HTML5/CSS3/JavaScript · **AdminLTE 3.2.0 / Bootstrap 4.6.1** · PDO. No frameworks, no build step, works offline.
+Stack (as in the paper, Ch. III): **WampServer** (Apache 2.4, PHP 8.2, MySQL 8.x) · HTML5/CSS3/JavaScript · **AdminLTE 3.2.0 / Bootstrap 4.6.1** · PDO. No frameworks, no build step, works offline.
+
+> Environment note (Oct 2026): installed as **WampServer 3.4.0** — Apache 2.4.65, **PHP 8.2.29 (active)**, **MySQL 8.4.7**, MariaDB 11.4.9 also bundled. Meets the Ch. III requirement of WampServer 3.3.5-class components (Apache 2.4 / PHP 8.2 / MySQL 8).
 
 > Paper note: Chapter III lists "Bootstrap 5.3.8 / AdminLTE 4.9.1". The system (and the class example) uses **AdminLTE 3.2.0 on Bootstrap 4.6.1** — update Chapter III to match.
 
@@ -18,6 +20,10 @@ Stack (as in the paper, Ch. III): **WampServer 3.3.5** (Apache 2.4, PHP 8.2, MyS
    `ALTER USER 'mutuallink_app'@'localhost' IDENTIFIED BY 'your-new-password';`
    then put the same password in `config/db.php` (`DB_PASS`).
 5. Open `http://localhost/mutuallink` and sign in.
+
+**Upgrading an existing database**: after pulling changes that came with the FFMC clarification answers, apply
+`database/patch_ffmpc_answers.sql` once (phpMyAdmin → Import, or `mysql -u root -p mutuallink < database\patch_ffmpc_answers.sql`).
+It adds the co-maker member link, the savings-interest transaction type, and the new settings. A fresh `mutuallink.sql` import already has everything.
 
 Requirements already enabled in WampServer: `pdo_mysql`, `mbstring`. Apache `AllowOverride All` (default) lets `.htaccess` block the internal folders.
 
@@ -45,22 +51,27 @@ Requirements already enabled in WampServer: `pdo_mysql`, `mbstring`. Apache `All
 | V3 | Reminders | Generate upcoming/overdue | List | Mark sent/failed | Remove unsent |
 | V3 | Reports / audit / settings | — | Daily collection, loan status, aging, savings, share capital, salary deduction list, audit log | Settings (Manager) | — |
 
-## 3. FFMPC rules (from the requirements questionnaire, Appendix A)
+## 3. FFMPC rules (from the requirements questionnaire + the answered clarification sheet)
 
 **Loans (`lib/loan_calc.php`, `lib/loan_service.php`)**
-- **Interest:** 3% per month on the diminishing balance, **equal principal** each month — checked against FFMPC's own sample: ₱26,000 / 9 months → principal 2,888.89, interest 780.00, 693.33, 606.67 … 86.67, total interest ₱3,900.00.
+- **Interest:** 3% per month on the diminishing balance, **equal principal** each month — checked against FFMPC's own sample: ₱26,000 / 9 months → principal 2,888.85, interest 780.00, 693.30, 606.65 … 86.65, total interest ₱3,899.85.
+- **Rounding:** every monthly amount is rounded **down to ₱0.05**, like FFMPC's Excel sheet (clarification A1).
 - **Semi-monthly amount** (salary deduction on the 15th and 30th) is shown beside each monthly amount, as in FFMPC's computation sheet.
-- **After the term (past due):** once the loan term is surpassed, the unpaid balance is charged **3% interest + 4% penalty = 7% per month** (a partial month counts as one). No penalty while the term is running.
+- **After the term (past due):** once the loan term is surpassed, the **unpaid principal + unpaid interest** is charged **3% interest + 4% penalty per month, computed per day** (the monthly rate spread over 30 days) — clarifications A2 and A3. No penalty while the term is running.
 - **Payment order:** penalty → interest → principal, oldest installment first. Paying more than one installment settles the next ones in advance; paying everything closes the loan early. **No rebate** on advance or early payment.
-- **Deductions at release** (FFMPC's "Summary of loan computation"): loan insurance 0.56%, service fee 3%, stockshare 2% (credited to share capital), notarial fee ₱200, others/printing ₱30, and the balance of a previous loan on renewal. Interest is not deducted in advance. ₱26,000 → deductions ₱1,675.60, net ₱24,324.40.
-- **Loanable amount:** Regular Loan up to 30% of the collateral's appraised value (₱3,000,000 title → ₱900,000), up to 1 year; Salary Loan depends on net pay, up to 1 year; Emergency Loan up to ₱3,000, 3 months.
+- **Deductions at release** (FFMPC's "Summary of loan computation"): loan insurance 0.56%, service fee 3%, stockshare 2% (credited to share capital), notarial fee ₱200, others/printing ₱30, and on renewal the previous loan's **remaining principal + interest due** (clarification A7). Interest is not deducted in advance. ₱26,000 → deductions ₱1,675.60, net ₱24,324.40.
+- **Loanable amount:** Regular Loan up to 30% of the collateral's appraised value (₱3,000,000 title → ₱900,000), up to 1 year; Salary Loan only up to what one month's salary can pay — the **monthly amortization (principal + interest) must not exceed the monthly net pay** (A8); Emergency Loan up to ₱3,000, 3 months.
+- **Co-maker:** must be an **active FFMPC member**, picked from the member list (A11).
+- **One loan per product:** a member may hold at most one loan of each product at a time (A12).
+- **Salary deduction due dates:** loans paid by salary deduction fall due on the **payroll dates** — the 30th of each month, clamped to the month's last day (A14); the deduction list splits each month into the 15th and 30th halves.
 - **Eligibility:** good payment record, a co-maker, and collateral for members from outside the school; the member must be an approved (active) member.
 - **Release:** cash or check, by the Manager.
 
 **Members and savings**
-- Membership: pre-membership seminar (PMES) → application form with TIN and signature specimen → membership fee + initial share capital → Manager's approval (about one month). Applicants cannot borrow.
+- Membership: pre-membership seminar (PMES) → application form with TIN and signature specimen → membership fee + initial share capital → Manager's approval (about one month). Applicants cannot borrow. The membership fee is **fixed at ₱250** (A15, editable in Settings).
 - Minimums: share capital ₱2,000, regular savings ₱500 maintaining balance, time deposit ₱10,000, CBU ₱100 per month.
-- Withdrawals need the passbook (a lost passbook requires a notarized affidavit of loss); deposits do not.
+- **Interest:** regular savings earn **1% per quarter**; a time deposit earns **1% per term** — posted by the Bookkeeper in **Savings Interest** (A17, rate editable in Settings).
+- Withdrawals need the passbook (a lost passbook requires a notarized affidavit of loss); deposits do not. **Share capital** is returned to a resigning member only with a **BOD resolution** recorded on the withdrawal (A18).
 
 **Receipts:** plain numbered OR series like the receipt booklet (e.g. 025952). The Manager sets the last number issued in **Settings**; it can only move forward.
 

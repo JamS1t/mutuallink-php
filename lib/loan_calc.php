@@ -3,13 +3,24 @@ declare(strict_types=1);
 
 /**
  * Loan computations (pure functions — no database access).
- * Rules follow FFMPC practice (questionnaire + the cooperative's own sample computation):
+ * Rules follow FFMPC practice (questionnaire + the cooperative's own sample computation,
+ * as confirmed on the answered clarification sheet, Oct 2026):
  *  - 3% per month on the diminishing balance, equal principal per month
- *  - once the loan term is surpassed, the unpaid balance is charged
- *    3% interest + 4% penalty = 7% per month (a partial month counts as one)
+ *  - every monthly amount is rounded DOWN to the nearest ₱0.05, like the Excel sheet
+ *  - once the loan term is surpassed, the unpaid principal + unpaid interest is charged
+ *    3% interest + 4% penalty computed PER DAY (the monthly rate spread over 30 days)
  *  - payments applied to penalty, then interest, then principal
  *  - advance or early payment: no rebate, nothing changes
+ *  - members paying by salary deduction fall due on the payroll dates (the 30th of each
+ *    month, clamped to the month's last day); the deduction list splits each month in half
  */
+
+/** Rounds DOWN to the nearest ₱0.05, like FFMPC's Excel sheet (clarification A1). */
+function round05(float $value): float
+{
+    $cents = (int) round($value * 100);
+    return floor($cents / 5) * 5 / 100;
+}
 
 function money_round(float $value): float
 {
@@ -17,8 +28,8 @@ function money_round(float $value): float
 }
 
 /**
- * Adds $n months to a date, keeping the same day of month and clamping to the
- * month's last day (Jan 31 + 1 month = Feb 28).
+ * Due date of installment $n for a loan released on $releaseDate: same day of month,
+ * clamped to the month's last day (Jan 31 + 1 month = Feb 28).
  */
 function add_months_clamped(string $date, int $n): string
 {
@@ -34,24 +45,42 @@ function add_months_clamped(string $date, int $n): string
 }
 
 /**
+ * Payroll date of installment $n (clarification A14): the 30th of the month,
+ * clamped to the month's last day — Feb has no 30th, and the 31st is not a payroll day.
+ */
+function payroll_due_date(string $releaseDate, int $n): string
+{
+    $base = new DateTimeImmutable($releaseDate);
+    $firstOfTarget = $base->modify('first day of this month')->modify("+$n months");
+    $lastDay = (int) $firstOfTarget->format('t');
+    return $firstOfTarget->setDate(
+        (int) $firstOfTarget->format('Y'),
+        (int) $firstOfTarget->format('m'),
+        min(30, $lastDay)
+    )->format('Y-m-d');
+}
+
+/**
  * Amortization schedule: equal principal, interest on the remaining balance.
- * The rounding remainder of the principal goes to the last installment.
+ * Monthly amounts (principal, interest, total) are rounded DOWN to ₱0.05 like
+ * FFMPC's Excel sheet; the rounding remainder of the principal goes to the last
+ * installment, which carries the exact balance.
  *
  * @return list<array{installment_no:int,due_date:string,principal_due:float,interest_due:float,total_due:float,balance:float}>
  */
-function build_schedule(float $principal, int $months, float $ratePct, string $releaseDate): array
+function build_schedule(float $principal, int $months, float $ratePct, string $releaseDate, bool $payrollDue = false): array
 {
     $rows = [];
     $balance = money_round($principal);
-    $equalPrincipal = money_round($principal / $months);
+    $equalPrincipal = round05($principal / $months);
 
     for ($i = 1; $i <= $months; $i++) {
         $principalDue = ($i === $months) ? $balance : $equalPrincipal;
-        $interestDue = money_round($balance * $ratePct / 100);
+        $interestDue = round05($balance * $ratePct / 100);
         $balance = money_round($balance - $principalDue);
         $rows[] = [
             'installment_no' => $i,
-            'due_date'       => add_months_clamped($releaseDate, $i),
+            'due_date'       => $payrollDue ? payroll_due_date($releaseDate, $i) : add_months_clamped($releaseDate, $i),
             'principal_due'  => $principalDue,
             'interest_due'   => $interestDue,
             'total_due'      => money_round($principalDue + $interestDue),
@@ -62,27 +91,26 @@ function build_schedule(float $principal, int $months, float $ratePct, string $r
 }
 
 /**
- * Charges owed once the loan term has been surpassed (FFMPC: "Past due 3% + Penalty 4% = 7%").
- * For every month or part of a month after maturity, the unpaid principal is charged
- * interest (3%) and penalty (4%). Amounts already collected are subtracted.
- * Note: charged on the balance as of today; if principal is paid down mid-way the
- * earlier months are recomputed on the lower balance (never below what was collected).
- * Switch to month-by-month accrual rows if FFMPC needs exact historical balances.
+ * Charges owed once the loan term has been surpassed (FFMPC: "Past due 3% + Penalty 4%").
+ * Per the clarification sheet (A2, A3): after the term ends the charge is computed PER DAY
+ * — the monthly rates are spread over 30 days — on the unpaid principal PLUS the unpaid
+ * interest. Amounts already collected are subtracted.
+ * Note: charged on the balance as of today; if the loan is paid down mid-way the
+ * earlier days are recomputed on the lower base (never below what was collected).
  *
- * @return array{months:int, interest:float, penalty:float}
+ * @return array{days:int, interest:float, penalty:float}
  */
-function compute_past_due(float $unpaidPrincipal, float $interestPct, float $penaltyPct, string $maturityDate,
+function compute_past_due(float $base, float $interestPct, float $penaltyPct, string $maturityDate,
                           string $asOf, float $interestPaid = 0.0, float $penaltyPaid = 0.0): array
 {
     $days = (int) (new DateTimeImmutable($maturityDate))->diff(new DateTimeImmutable($asOf))->format('%r%a');
-    if ($days <= 0 || $unpaidPrincipal <= 0) {
-        return ['months' => 0, 'interest' => 0.00, 'penalty' => 0.00];
+    if ($days <= 0 || $base <= 0) {
+        return ['days' => 0, 'interest' => 0.00, 'penalty' => 0.00];
     }
-    $months = (int) ceil($days / 30);
     return [
-        'months'   => $months,
-        'interest' => max(0.00, money_round(money_round($unpaidPrincipal * $interestPct / 100 * $months) - $interestPaid)),
-        'penalty'  => max(0.00, money_round(money_round($unpaidPrincipal * $penaltyPct / 100 * $months) - $penaltyPaid)),
+        'days'     => $days,
+        'interest' => max(0.00, money_round(money_round($base * $interestPct / 100 / 30 * $days) - $interestPaid)),
+        'penalty'  => max(0.00, money_round(money_round($base * $penaltyPct / 100 / 30 * $days) - $penaltyPaid)),
     ];
 }
 
@@ -122,6 +150,25 @@ function allocate_payment(float $amount, float $pdPenalty, float $pdInterest, ar
         ];
     }
     return ['lines' => $lines, 'excess' => $left];
+}
+
+/**
+ * Salary Loan limit (FFMPC): a member may borrow only what one month's salary
+ * can pay — the first-month installment (equal principal + interest) must not
+ * exceed the monthly net pay. Returns the largest principal that satisfies
+ * this, in centavos (0.00 when no principal fits the given term).
+ */
+function max_principal_for_net_pay(float $netPay, int $months, float $ratePct): float
+{
+    $denom = 1 / $months + $ratePct / 100;
+    if ($denom <= 0 || $netPay <= 0) {
+        return 0.00;
+    }
+    $p = floor($netPay / $denom * 100) / 100;
+    while ($p > 0 && build_schedule($p, $months, $ratePct, '2000-01-01')[0]['total_due'] > $netPay) {
+        $p = money_round($p - 0.01);
+    }
+    return max(0.00, $p);
 }
 
 /** Semi-monthly share of a monthly amount (salary deduction on the 15th and 30th). */

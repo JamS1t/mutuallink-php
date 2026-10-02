@@ -5,6 +5,7 @@ declare(strict_types=1);
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="csrf-token" content="<?= e(csrf_token()) ?>">
+  <meta name="session-idle" content="<?= (int) SESSION_IDLE_SECONDS ?>">
   <title><?= e($title ?? 'MutualLink') ?> · MutualLink</title>
   <link rel="icon" type="image/png" href="dist/img/favicon.png">
   <link rel="stylesheet" href="plugins/fontawesome-free/css/all.min.css">

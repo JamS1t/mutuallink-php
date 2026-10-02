@@ -48,10 +48,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
     if ($action === 'record_fee') {
         require_permission('members', 'fee');
-        $errors = [];
-        $fee = money_in($errors, 'membership_fee', 'Membership fee', true, 1.00, 100000.00);
-        if ($errors) {
-            flash_errors($errors);
+        // Fixed membership fee (clarification A15): ₱250, set in Settings
+        $fee = (float) setting('membership_fee');
+        if ($fee <= 0) {
+            flash('error', 'The membership fee is not configured. Ask the Manager to set it in Settings.');
         } else {
             $pdo = db();
             try {
@@ -137,11 +137,8 @@ $shareCapital = array_sum(array_map(fn ($a) => $a['account_type'] === 'share_cap
             <form method="post" action="" class="ml-form mb-3">
               <?= csrf_field() ?>
               <input type="hidden" name="action" value="record_fee">
-              <label for="membership_fee" class="small font-weight-bold">Receive membership fee (₱)</label>
-              <div class="input-group">
-                <input type="text" inputmode="decimal" id="membership_fee" name="membership_fee" class="form-control" required>
-                <div class="input-group-append"><button type="submit" class="btn btn-primary">Receive &amp; issue OR</button></div>
-              </div>
+              <label class="small font-weight-bold">Membership fee — fixed at <?= e(money(setting('membership_fee'))) ?></label>
+              <button type="submit" class="btn btn-primary btn-block">Receive <?= e(money(setting('membership_fee'))) ?> &amp; issue OR</button>
             </form>
           <?php endif; ?>
           <?php if (can('members', 'approve')): ?>

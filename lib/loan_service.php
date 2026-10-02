@@ -40,16 +40,14 @@ function current_installment(int $loanId): ?array
 }
 
 /**
- * Everything owed on a loan as of a date: charges after the term (3% + 4%),
- * the current installment, and the full payoff (no rebate on early payment).
+ * Everything owed on a loan as of a date: charges after the term (3% + 4% per day on
+ * the unpaid principal + unpaid interest — clarifications A2, A3), the current
+ * installment, and the full payoff (no rebate on early payment).
  *
  * @return array{pd:array, remaining:list<array>, current:?array, current_total:float, payoff:float, days_past_maturity:int}
  */
 function loan_dues(array $loan, array $unpaid, string $asOf): array
 {
-    $pd = compute_past_due((float) $loan['outstanding_balance'], (float) $loan['interest_rate'], (float) $loan['penalty_rate'],
-        (string) $loan['maturity_date'], $asOf, (float) $loan['pd_interest_paid'], (float) $loan['pd_penalty_paid']);
-
     $remaining = array_map(fn ($s) => [
         'schedule_id'    => (int) $s['schedule_id'],
         'installment_no' => (int) $s['installment_no'],
@@ -57,6 +55,12 @@ function loan_dues(array $loan, array $unpaid, string $asOf): array
         'interest'       => money_round((float) $s['interest_due'] - (float) $s['interest_paid']),
         'principal'      => money_round((float) $s['principal_due'] - (float) $s['principal_paid']),
     ], $unpaid);
+
+    // The after-term base is the unpaid principal plus the unpaid interest (A3)
+    $unpaidInterest = money_round(array_sum(array_column($remaining, 'interest')));
+    $pd = compute_past_due(money_round((float) $loan['outstanding_balance'] + $unpaidInterest),
+        (float) $loan['interest_rate'], (float) $loan['penalty_rate'],
+        (string) $loan['maturity_date'], $asOf, (float) $loan['pd_interest_paid'], (float) $loan['pd_penalty_paid']);
 
     $charges = money_round($pd['penalty'] + $pd['interest']);
     $current = $remaining[0] ?? null;
@@ -139,8 +143,10 @@ function release_loan(int $loanId, string $releaseDate, ?int $prevLoanId, string
             throw new DomainException('Enter the check number.');
         }
 
-        // Previous loan to be offset (renewal)
+        // Previous loan to be offset (renewal): FFMPC deducts the remaining principal
+        // PLUS the interest due (clarification A7)
         $prev = null;
+        $prevDue = 0.0;
         if ($prevLoanId) {
             $stmt = $pdo->prepare("SELECT loan_id, outstanding_balance FROM loans WHERE loan_id = :id AND member_id = :m AND status = 'released' FOR UPDATE");
             $stmt->execute([':id' => $prevLoanId, ':m' => $loan['member_id']]);
@@ -148,10 +154,17 @@ function release_loan(int $loanId, string $releaseDate, ?int $prevLoanId, string
             if (!$prev) {
                 throw new DomainException('The selected previous loan is not an active loan of this member.');
             }
+            $stmt = $pdo->prepare("SELECT interest_due, interest_paid FROM amortization_schedule WHERE loan_id = :id AND status <> 'paid' FOR UPDATE");
+            $stmt->execute([':id' => $prevLoanId]);
+            $prevInterest = money_round(array_sum(array_map(
+                fn ($r) => (float) $r['interest_due'] - (float) $r['interest_paid'],
+                $stmt->fetchAll()
+            )));
+            $prevDue = money_round((float) $prev['outstanding_balance'] + $prevInterest);
         }
 
         $principal = (float) $loan['principal'];
-        $d = compute_deductions($principal, deduction_rates(), $prev ? (float) $prev['outstanding_balance'] : 0.0);
+        $d = compute_deductions($principal, deduction_rates(), $prevDue);
         if ($d['net'] <= 0) {
             throw new DomainException('Deductions (' . money($d['total']) . ') leave no net proceeds.');
         }
@@ -177,31 +190,36 @@ function release_loan(int $loanId, string $releaseDate, ?int $prevLoanId, string
             savings_entry((int) $scId, 'deposit', $d['stockshare'], 1, $releaseDate, "Stockshare from loan #$loanId", null, false);
         }
 
-        // Offset the previous loan: remaining principal is settled from this loan; unearned future interest is waived.
+        // Offset the previous loan: the remaining principal AND the interest due are
+        // settled from this loan (clarification A7)
         if ($prev) {
             $stmt = $pdo->prepare("SELECT * FROM amortization_schedule WHERE loan_id = :id AND status <> 'paid' ORDER BY installment_no FOR UPDATE");
             $stmt->execute([':id' => $prev['loan_id']]);
             $running = (float) $prev['outstanding_balance'];
             $pay = $pdo->prepare(
-                "INSERT INTO payments (loan_id, schedule_id, or_no, payment_date, amount_paid, mode, principal_portion, remaining_balance, posted_by)
-                 VALUES (:l, :s, :or, :d, :a, 'offset', :a2, :rb, :u)"
+                "INSERT INTO payments (loan_id, schedule_id, or_no, payment_date, amount_paid, mode, principal_portion, interest_portion, remaining_balance, posted_by)
+                 VALUES (:l, :s, :or, :d, :a, 'offset', :p, :i, :rb, :u)"
             );
-            $close = $pdo->prepare("UPDATE amortization_schedule SET principal_paid = principal_due, status = 'paid' WHERE schedule_id = :id");
+            $close = $pdo->prepare("UPDATE amortization_schedule SET principal_paid = principal_due, interest_paid = interest_due, status = 'paid' WHERE schedule_id = :id");
             foreach ($stmt->fetchAll() as $inst) {
                 $rem = money_round((float) $inst['principal_due'] - (float) $inst['principal_paid']);
-                if ($rem > 0) {
+                $remInt = money_round((float) $inst['interest_due'] - (float) $inst['interest_paid']);
+                if ($rem > 0 || $remInt > 0) {
                     $running = money_round($running - $rem);
                     $pay->execute([':l' => $prev['loan_id'], ':s' => $inst['schedule_id'], ':or' => 'OFS-' . $loanId,
-                        ':d' => $releaseDate, ':a' => $rem, ':a2' => $rem, ':rb' => max(0, $running), ':u' => current_user_id()]);
+                        ':d' => $releaseDate, ':a' => money_round($rem + $remInt), ':p' => $rem, ':i' => $remInt,
+                        ':rb' => max(0, $running), ':u' => current_user_id()]);
                 }
                 $close->execute([':id' => $inst['schedule_id']]);
             }
             $pdo->prepare("UPDATE loans SET outstanding_balance = 0, status = 'paid' WHERE loan_id = :id")->execute([':id' => $prev['loan_id']]);
-            audit_log('offset', 'loans', (int) $prev['loan_id'], 'Settled by renewal loan #' . $loanId . ' (' . money($d['previous_loan']) . ')');
+            audit_log('offset', 'loans', (int) $prev['loan_id'], 'Settled by renewal loan #' . $loanId . ' (principal + interest due: ' . money($d['previous_loan']) . ')');
         }
 
-        // Amortization schedule (equal principal, 3% on the diminishing balance)
-        $rows = build_schedule($principal, (int) $loan['term_months'], (float) $loan['interest_rate'], $releaseDate);
+        // Amortization schedule (equal principal, 3% on the diminishing balance); loans
+        // paid by salary deduction fall due on the payroll dates (clarification A14)
+        $rows = build_schedule($principal, (int) $loan['term_months'], (float) $loan['interest_rate'], $releaseDate,
+            $loan['repayment_mode'] === 'salary_deduction');
         $ins = $pdo->prepare(
             'INSERT INTO amortization_schedule (loan_id, installment_no, due_date, principal_due, interest_due, total_due, balance)
              VALUES (:l, :n, :d, :p, :i, :t, :b)'

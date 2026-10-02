@@ -110,7 +110,7 @@ const ANNOTATIONS = [
     '17-schedule-print' => [
         [1088, 35, 84, 38, 1275, 110, 'Print', "Prints the member's copy."],
         [934, 600, 140, 520, 1275, 600, 'Semi-monthly column', 'The amount for each payroll cut-off.'],
-        [905, 955, 370, 100, 1275, 955, 'After-term rule', '3% interest plus 4% penalty per month once the term ends.'],
+        [905, 955, 370, 100, 1275, 955, 'After-term rule', '3% interest plus 4% penalty per month, computed per day, on the balance + unpaid interest once the term ends.'],
         [523, 1015, 370, 220, 165, 1015, 'Deductions', 'Deductions at release and the net proceeds.'],
         [720, 1180, 760, 40, 165, 1180, 'Signatures', 'The borrower and the authorized officer sign here.'],
     ],

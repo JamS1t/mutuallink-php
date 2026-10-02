@@ -53,13 +53,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     $today = date('Y-m-d');
     if ($data['pmes_date'] && $data['pmes_date'] > $today) {
-        $errors[] = 'PMES date cannot be in the future.';
+        $errors['pmes_date'] = 'PMES date cannot be in the future.';
     }
     if ($data['birthdate'] && $data['birthdate'] > date('Y-m-d', strtotime('-18 years'))) {
-        $errors[] = 'Member must be at least 18 years old.';
+        $errors['birthdate'] = 'Member must be at least 18 years old.';
     }
     if ($data['date_of_membership'] && $data['date_of_membership'] > $today) {
-        $errors[] = 'Date of membership cannot be in the future.';
+        $errors['date_of_membership'] = 'Date of membership cannot be in the future.';
     }
     if ($data['civil_status'] !== 'married') {
         $data['spouse_name'] = null;
@@ -78,7 +78,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $params[':id'] = $id;
                 $pdo->prepare("UPDATE members SET $set, updated_by = :by WHERE member_id = :id")->execute($params);
                 audit_log('update', 'members', $id, 'Profile of ' . $m['member_no']);
-                flash('success', 'Member profile updated.');
+                // Non-financial change → offer Undo: re-submit the pre-edit values through this same form.
+                $undoFields = [];
+                foreach ($data as $c => $v) {
+                    $undoFields[$c] = (string) ($m[$c] ?? '');
+                }
+                $undoFields['signature_on_file'] = ((int) $m['signature_on_file'] === 1) ? '1' : '';
+                flash_undo('Member profile updated. Undo restores the previous values.', 'dashboard.php?page=member_form&id=' . $id, $undoFields);
                 redirect('dashboard.php?page=member_view&id=' . $id);
             }
 
@@ -110,9 +116,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $field = fn (string $k) => e(old($k, $m[$k] ?? ''));
+$errors = take_field_errors();
 ?>
-<form method="post" action="" class="ml-form" novalidate>
+<form method="post" action="" class="ml-form" novalidate data-dirty-guard>
   <?= csrf_field() ?>
+  <?= error_summary($errors) ?>
   <div class="row">
     <div class="col-lg-8">
       <div class="card card-primary card-outline">
@@ -121,11 +129,13 @@ $field = fn (string $k) => e(old($k, $m[$k] ?? ''));
           <div class="form-row">
             <div class="form-group col-md-4">
               <label for="last_name">Last name <span class="text-danger">*</span></label>
-              <input type="text" class="form-control" id="last_name" name="last_name" required maxlength="80" value="<?= $field('last_name') ?>">
+              <input type="text" class="form-control<?= invalid_class($errors, 'last_name') ?>" id="last_name" name="last_name" required maxlength="80" value="<?= $field('last_name') ?>"<?= invalid_attrs($errors, 'last_name') ?>>
+              <?= field_feedback($errors, 'last_name') ?>
             </div>
             <div class="form-group col-md-4">
               <label for="first_name">First name <span class="text-danger">*</span></label>
-              <input type="text" class="form-control" id="first_name" name="first_name" required maxlength="80" value="<?= $field('first_name') ?>">
+              <input type="text" class="form-control<?= invalid_class($errors, 'first_name') ?>" id="first_name" name="first_name" required maxlength="80" value="<?= $field('first_name') ?>"<?= invalid_attrs($errors, 'first_name') ?>>
+              <?= field_feedback($errors, 'first_name') ?>
             </div>
             <div class="form-group col-md-4">
               <label for="middle_name">Middle name</label>
@@ -135,33 +145,39 @@ $field = fn (string $k) => e(old($k, $m[$k] ?? ''));
           <div class="form-row">
             <div class="form-group col-md-4">
               <label for="birthdate">Birthdate <span class="text-danger">*</span></label>
-              <input type="date" class="form-control" id="birthdate" name="birthdate" required max="<?= e(date('Y-m-d', strtotime('-18 years'))) ?>" value="<?= $field('birthdate') ?>">
+              <input type="date" class="form-control<?= invalid_class($errors, 'birthdate') ?>" id="birthdate" name="birthdate" required max="<?= e(date('Y-m-d', strtotime('-18 years'))) ?>" value="<?= $field('birthdate') ?>"<?= invalid_attrs($errors, 'birthdate') ?>>
+              <?= field_feedback($errors, 'birthdate') ?>
             </div>
             <div class="form-group col-md-4">
               <label for="civil_status">Civil status <span class="text-danger">*</span></label>
-              <select class="custom-select" id="civil_status" name="civil_status">
+              <select class="custom-select<?= invalid_class($errors, 'civil_status') ?>" id="civil_status" name="civil_status"<?= invalid_attrs($errors, 'civil_status') ?>>
                 <?php foreach (CIVIL_STATUS as $k => $v): ?>
                   <option value="<?= $k ?>" <?= old('civil_status', $m['civil_status']) === $k ? 'selected' : '' ?>><?= $v ?></option>
                 <?php endforeach; ?>
               </select>
+              <?= field_feedback($errors, 'civil_status') ?>
             </div>
             <div class="form-group col-md-4">
               <label for="spouse_name">Spouse name <small class="text-muted">(if married)</small></label>
-              <input type="text" class="form-control" id="spouse_name" name="spouse_name" maxlength="150" value="<?= $field('spouse_name') ?>">
+              <input type="text" class="form-control<?= invalid_class($errors, 'spouse_name') ?>" id="spouse_name" name="spouse_name" maxlength="150" value="<?= $field('spouse_name') ?>"<?= invalid_attrs($errors, 'spouse_name') ?>>
+              <?= field_feedback($errors, 'spouse_name') ?>
             </div>
           </div>
           <div class="form-group">
             <label for="address">Address <span class="text-danger">*</span></label>
-            <input type="text" class="form-control" id="address" name="address" required maxlength="255" value="<?= $field('address') ?>">
+            <input type="text" class="form-control<?= invalid_class($errors, 'address') ?>" id="address" name="address" required maxlength="255" value="<?= $field('address') ?>"<?= invalid_attrs($errors, 'address') ?>>
+            <?= field_feedback($errors, 'address') ?>
           </div>
           <div class="form-row">
             <div class="form-group col-md-6">
               <label for="contact_no">Mobile number</label>
-              <input type="tel" class="form-control" id="contact_no" name="contact_no" maxlength="13" placeholder="09171234567" value="<?= $field('contact_no') ?>">
+              <input type="tel" class="form-control<?= invalid_class($errors, 'contact_no') ?>" id="contact_no" name="contact_no" maxlength="13" placeholder="09171234567" value="<?= $field('contact_no') ?>"<?= invalid_attrs($errors, 'contact_no') ?>>
+              <?= field_feedback($errors, 'contact_no') ?>
             </div>
             <div class="form-group col-md-6">
               <label for="email">Email <small class="text-muted">(for payment reminders)</small></label>
-              <input type="email" class="form-control" id="email" name="email" maxlength="150" value="<?= $field('email') ?>">
+              <input type="email" class="form-control<?= invalid_class($errors, 'email') ?>" id="email" name="email" maxlength="150" value="<?= $field('email') ?>"<?= invalid_attrs($errors, 'email') ?>>
+              <?= field_feedback($errors, 'email') ?>
             </div>
           </div>
           <div class="form-row">
@@ -171,22 +187,26 @@ $field = fn (string $k) => e(old($k, $m[$k] ?? ''));
             </div>
             <div class="form-group col-md-6">
               <label for="monthly_income">Monthly income (₱)</label>
-              <input type="text" inputmode="decimal" class="form-control" id="monthly_income" name="monthly_income" value="<?= $field('monthly_income') ?>">
+              <input type="text" inputmode="decimal" class="form-control<?= invalid_class($errors, 'monthly_income') ?>" id="monthly_income" name="monthly_income" value="<?= $field('monthly_income') ?>"<?= invalid_attrs($errors, 'monthly_income') ?>>
+              <?= field_feedback($errors, 'monthly_income') ?>
             </div>
           </div>
           <div class="form-row">
             <div class="form-group col-md-6">
               <label for="tin">TIN <span class="text-danger">*</span></label>
-              <input type="text" class="form-control" id="tin" name="tin" required maxlength="20" placeholder="123-456-789" value="<?= $field('tin') ?>">
+              <input type="text" class="form-control<?= invalid_class($errors, 'tin') ?>" id="tin" name="tin" required maxlength="20" placeholder="123-456-789" value="<?= $field('tin') ?>"<?= invalid_attrs($errors, 'tin') ?>>
+              <?= field_feedback($errors, 'tin') ?>
             </div>
             <div class="form-group col-md-6">
               <label for="sss">SSS number</label>
-              <input type="text" class="form-control" id="sss" name="sss" maxlength="20" placeholder="12-3456789-0" value="<?= $field('sss') ?>">
+              <input type="text" class="form-control<?= invalid_class($errors, 'sss') ?>" id="sss" name="sss" maxlength="20" placeholder="12-3456789-0" value="<?= $field('sss') ?>"<?= invalid_attrs($errors, 'sss') ?>>
+              <?= field_feedback($errors, 'sss') ?>
             </div>
           </div>
           <div class="form-group mb-0">
             <label for="beneficiaries">Beneficiaries <small class="text-muted">(one per line: name – relationship)</small></label>
-            <textarea class="form-control" id="beneficiaries" name="beneficiaries" rows="3" maxlength="1000"><?= $field('beneficiaries') ?></textarea>
+            <textarea class="form-control<?= invalid_class($errors, 'beneficiaries') ?>" id="beneficiaries" name="beneficiaries" rows="3" maxlength="1000"<?= invalid_attrs($errors, 'beneficiaries') ?>><?= $field('beneficiaries') ?></textarea>
+            <?= field_feedback($errors, 'beneficiaries') ?>
           </div>
         </div>
       </div>
@@ -204,11 +224,13 @@ $field = fn (string $k) => e(old($k, $m[$k] ?? ''));
           <?php endif; ?>
           <div class="form-group">
             <label for="pmes_date">Pre-membership seminar (PMES) attended <span class="text-danger">*</span></label>
-            <input type="date" class="form-control" id="pmes_date" name="pmes_date" required max="<?= e(date('Y-m-d')) ?>" value="<?= $field('pmes_date') ?>">
+            <input type="date" class="form-control<?= invalid_class($errors, 'pmes_date') ?>" id="pmes_date" name="pmes_date" required max="<?= e(date('Y-m-d')) ?>" value="<?= $field('pmes_date') ?>"<?= invalid_attrs($errors, 'pmes_date') ?>>
+            <?= field_feedback($errors, 'pmes_date') ?>
           </div>
           <div class="form-group">
             <label for="date_of_membership"><?= ($m['status'] ?? 'applicant') === 'applicant' ? 'Date of application' : 'Date of membership' ?> <span class="text-danger">*</span></label>
-            <input type="date" class="form-control" id="date_of_membership" name="date_of_membership" required max="<?= e(date('Y-m-d')) ?>" value="<?= $field('date_of_membership') ?>">
+            <input type="date" class="form-control<?= invalid_class($errors, 'date_of_membership') ?>" id="date_of_membership" name="date_of_membership" required max="<?= e(date('Y-m-d')) ?>" value="<?= $field('date_of_membership') ?>"<?= invalid_attrs($errors, 'date_of_membership') ?>>
+            <?= field_feedback($errors, 'date_of_membership') ?>
             <?php if (($m['status'] ?? 'applicant') === 'applicant'): ?><small class="form-text text-muted">Replaced by the approval date when the Manager approves the membership.</small><?php endif; ?>
           </div>
           <div class="form-group">
@@ -220,10 +242,11 @@ $field = fn (string $k) => e(old($k, $m[$k] ?? ''));
           </div>
           <div class="form-group mb-0">
             <label for="member_type">Member type <span class="text-danger">*</span></label>
-            <select class="custom-select" id="member_type" name="member_type">
+            <select class="custom-select<?= invalid_class($errors, 'member_type') ?>" id="member_type" name="member_type"<?= invalid_attrs($errors, 'member_type') ?>>
               <option value="school" <?= old('member_type', $m['member_type']) === 'school' ? 'selected' : '' ?>>School-based</option>
               <option value="outside" <?= old('member_type', $m['member_type']) === 'outside' ? 'selected' : '' ?>>Outside the school</option>
             </select>
+            <?= field_feedback($errors, 'member_type') ?>
             <small class="form-text text-muted">Members from outside the school must submit collateral for loans.</small>
           </div>
         </div>

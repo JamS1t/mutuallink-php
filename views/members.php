@@ -81,9 +81,9 @@ $members = $stmt->fetchAll();
           <td><?= (int) $m['active_loans'] > 0 ? '<span class="badge badge-primary">' . (int) $m['active_loans'] . ' active</span>' : '<span class="text-muted">—</span>' ?></td>
           <td><?= badge($m['status']) ?></td>
           <td class="text-right text-nowrap">
-            <a href="dashboard.php?page=member_view&id=<?= (int) $m['member_id'] ?>" class="btn btn-sm btn-light" title="View record"><i class="fas fa-eye"></i></a>
+            <a href="dashboard.php?page=member_view&id=<?= (int) $m['member_id'] ?>" class="btn btn-sm btn-light" title="View record" aria-label="View record of <?= e($m['first_name']) ?> <?= e($m['last_name']) ?>"><i class="fas fa-eye" aria-hidden="true"></i></a>
             <?php if (can('members', 'update')): ?>
-              <a href="dashboard.php?page=member_form&id=<?= (int) $m['member_id'] ?>" class="btn btn-sm btn-outline-primary" title="Edit"><i class="fas fa-pen"></i></a>
+              <a href="dashboard.php?page=member_form&id=<?= (int) $m['member_id'] ?>" class="btn btn-sm btn-outline-primary" title="Edit" aria-label="Edit profile of <?= e($m['first_name']) ?> <?= e($m['last_name']) ?>"><i class="fas fa-pen" aria-hidden="true"></i></a>
             <?php endif; ?>
             <?php if (can('members', 'delete')): ?>
               <form method="post" action="" class="d-inline ml-form"
@@ -93,8 +93,9 @@ $members = $stmt->fetchAll();
                 <input type="hidden" name="action" value="toggle_status">
                 <input type="hidden" name="member_id" value="<?= (int) $m['member_id'] ?>">
                 <button type="submit" class="btn btn-sm <?= $m['status'] !== 'inactive' ? 'btn-outline-danger' : 'btn-outline-success' ?>"
-                        title="<?= $m['status'] !== 'inactive' ? 'Deactivate' : 'Reactivate' ?>">
-                  <i class="fas <?= $m['status'] !== 'inactive' ? 'fa-user-slash' : 'fa-user-check' ?>"></i>
+                        title="<?= $m['status'] !== 'inactive' ? 'Deactivate' : 'Reactivate' ?>"
+                        aria-label="<?= $m['status'] !== 'inactive' ? 'Deactivate' : 'Reactivate' ?> <?= e($m['first_name']) ?> <?= e($m['last_name']) ?>">
+                  <i class="fas <?= $m['status'] !== 'inactive' ? 'fa-user-slash' : 'fa-user-check' ?>" aria-hidden="true"></i>
                 </button>
               </form>
             <?php endif; ?>

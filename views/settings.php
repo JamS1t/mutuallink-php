@@ -18,16 +18,23 @@ $editable = [
     'min_regular_savings'     => ['money', 0, 1000000],
     'min_time_deposit'        => ['money', 0, 10000000],
     'cbu_monthly'             => ['money', 0, 100000],
+    'membership_fee'          => ['money', 1, 100000],
+    'savings_interest_pct'    => ['pct', 0.01, 100],
     'reminder_lead_days'      => ['int', 1, 30],
     'aging_brackets'          => ['brackets', 0, 0],
     'or_counter'              => ['or', 0, 0],
+    'ui_lang'                 => ['lang', 0, 0], // high-frequency verb labels: English / Cebuano / Filipino
 ];
+// Setting rows added later (no schema change — same settings table)
+$langSettingKeys = ['ui_lang'];
 $groups = [
     'Loan deductions (FFMPC sample computation)' => ['insurance_pct', 'service_fee_pct', 'stockshare_pct', 'notarial_fee', 'other_fee'],
     'Loanable amount' => ['collateral_loanable_pct'],
     'Accounts' => ['min_share_capital', 'min_regular_savings', 'min_time_deposit', 'cbu_monthly'],
+    'Fees and interest (FFMPC clarifications A15, A17)' => ['membership_fee', 'savings_interest_pct'],
     'Monitoring' => ['reminder_lead_days', 'aging_brackets'],
     'Official receipts' => ['or_counter'],
+    'Interface language (verb labels)' => ['ui_lang'],
 ];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -37,7 +44,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $labels = db()->query('SELECT setting_key, label FROM settings')->fetchAll(PDO::FETCH_KEY_PAIR);
     foreach ($editable as $key => [$type, $min, $max]) {
         $label = $labels[$key] ?? $key;
-        if ($type === 'int') {
+        if ($type === 'lang') {
+            $v = input($key);
+            if (!in_array($v, array_keys(I18N), true)) {
+                $errors[$key] = 'Choose a valid interface language.';
+            }
+            $values[$key] = $v;
+        } elseif ($type === 'int') {
             $v = int_in($errors, $key, $label, $min, $max);
             $values[$key] = (string) $v;
         } elseif ($type === 'or') {
@@ -75,7 +88,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $changes = [];
             foreach ($values as $k => $v) {
                 if (($old[$k] ?? null) !== $v) {
-                    $upd->execute([':v' => $v, ':k' => $k]);
+                    if (in_array($k, $langSettingKeys, true) && !array_key_exists($k, $old)) {
+                        $pdo->prepare('INSERT INTO settings (setting_key, setting_value, label) VALUES (:k, :v, :l)')
+                            ->execute([':k' => $k, ':v' => $v, ':l' => 'Interface language (verb labels)']);
+                    } else {
+                        $upd->execute([':v' => $v, ':k' => $k]);
+                    }
                     $changes[] = "$k: {$old[$k]} → $v";
                 }
             }
@@ -92,22 +110,41 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $settings = db()->query('SELECT setting_key, setting_value, label FROM settings ORDER BY setting_key')->fetchAll(PDO::FETCH_UNIQUE);
+foreach ($langSettingKeys as $k) {
+    if (!isset($settings[$k])) {
+        $settings[$k] = ['setting_value' => 'en', 'label' => 'Interface language (verb labels)']; // defaults to English until saved
+    }
+}
+// Cooperative jargon on this form gets a focusable explainer
+$glossaryKeys = ['stockshare_pct' => 'stockshare', 'cbu_monthly' => 'cbu', 'min_regular_savings' => 'maintaining'];
 $example = compute_deductions(26000.0, deduction_rates(), 0.0);
+$errors = take_field_errors();
 ?>
 <div class="row">
   <div class="col-lg-7">
     <div class="card card-primary card-outline">
-      <form method="post" action="" class="ml-form" novalidate>
+      <form method="post" action="" class="ml-form" novalidate data-dirty-guard>
         <?= csrf_field() ?>
+        <?= error_summary($errors) ?>
         <div class="card-body">
           <?php foreach ($groups as $groupLabel => $keys): ?>
             <h3 class="h6 text-muted text-uppercase small mt-2 mb-3"><?= e($groupLabel) ?></h3>
             <?php foreach ($keys as $key): $s = $settings[$key]; $type = $editable[$key][0]; ?>
               <div class="form-group row">
-                <label for="<?= e($key) ?>" class="col-md-7 col-form-label"><?= e($s['label']) ?></label>
+                <label for="<?= e($key) ?>" class="col-md-7 col-form-label"><?= e($s['label']) ?><?= isset($glossaryKeys[$key]) ? ' ' . glossary_btn($glossaryKeys[$key]) : '' ?></label>
                 <div class="col-md-5">
-                  <input type="text" id="<?= e($key) ?>" name="<?= e($key) ?>" class="form-control text-right" <?= $canEdit ? '' : 'readonly' ?>
-                         inputmode="<?= $type === 'brackets' ? 'text' : ($type === 'or' || $type === 'int' ? 'numeric' : 'decimal') ?>" value="<?= e(old($key, $s['setting_value'])) ?>">
+                  <?php if ($type === 'lang'): ?>
+                    <select id="<?= e($key) ?>" name="<?= e($key) ?>" class="custom-select<?= invalid_class($errors, $key) ?>" <?= $canEdit ? '' : 'disabled' ?><?= invalid_attrs($errors, $key) ?>>
+                      <?php foreach (I18N_NAMES as $code => $name): ?>
+                        <option value="<?= e($code) ?>" <?= old($key, $s['setting_value']) === $code ? 'selected' : '' ?>><?= e($name) ?></option>
+                      <?php endforeach; ?>
+                    </select>
+                    <?= field_feedback($errors, $key) ?>
+                  <?php else: ?>
+                    <input type="text" id="<?= e($key) ?>" name="<?= e($key) ?>" class="form-control text-right<?= invalid_class($errors, $key) ?>" <?= $canEdit ? '' : 'readonly' ?>
+                           inputmode="<?= $type === 'brackets' ? 'text' : ($type === 'or' || $type === 'int' ? 'numeric' : 'decimal') ?>" value="<?= e(old($key, $s['setting_value'])) ?>"<?= invalid_attrs($errors, $key) ?>>
+                    <?= field_feedback($errors, $key) ?>
+                  <?php endif; ?>
                   <?php if ($type === 'or'): ?><small class="form-text text-muted">Next receipt will be No. <?= e(format_or((int) $s['setting_value'] + 1)) ?>. Set this to match the booklet; it can only move forward.</small><?php endif; ?>
                 </div>
               </div>

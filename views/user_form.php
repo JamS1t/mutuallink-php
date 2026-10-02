@@ -31,10 +31,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $password = is_string($_POST['password'] ?? null) ? $_POST['password'] : '';
 
     if (!$isEdit && $password === '') {
-        $errors[] = 'Password is required for a new account.';
+        $errors['password'] = 'Password is required for a new account.';
     }
     if ($password !== '' && !password_policy_ok($password)) {
-        $errors[] = 'Password must be 8–72 characters and contain at least one letter and one number.';
+        $errors['password'] = 'Password must be 8–72 characters and contain at least one letter and one number.';
     }
     if ($isSelf && ($role !== 'manager' || $status !== 'active')) {
         $errors[] = 'You cannot change your own role or deactivate yourself.';
@@ -53,8 +53,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt = db()->prepare('SELECT username, email FROM users WHERE (username = :u OR email = :e) AND user_id <> :id');
         $stmt->execute([':u' => $username, ':e' => $email, ':id' => $id]);
         foreach ($stmt->fetchAll() as $dup) {
-            if (strcasecmp($dup['username'], $username) === 0) { $errors[] = 'Username is already taken.'; }
-            if (strcasecmp($dup['email'], $email) === 0) { $errors[] = 'Email is already registered.'; }
+            if (strcasecmp($dup['username'], $username) === 0) { $errors['username'] = 'Username is already taken.'; }
+            if (strcasecmp($dup['email'], $email) === 0) { $errors['email'] = 'Email is already registered.'; }
         }
     }
 
@@ -92,61 +92,69 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 ?>
+<?php $errors = take_field_errors(); ?>
 <div class="row">
   <div class="col-lg-8">
     <div class="card card-primary card-outline">
-      <form method="post" action="" class="ml-form" novalidate>
+      <form method="post" action="" class="ml-form" novalidate data-dirty-guard>
         <?= csrf_field() ?>
+        <?= error_summary($errors) ?>
         <div class="card-body">
           <div class="form-group">
             <label for="full_name">Full name <span class="text-danger">*</span></label>
-            <input type="text" class="form-control" id="full_name" name="full_name" required maxlength="150" value="<?= e(old('full_name', $user['full_name'])) ?>">
+            <input type="text" class="form-control<?= invalid_class($errors, 'full_name') ?>" id="full_name" name="full_name" required maxlength="150" value="<?= e(old('full_name', $user['full_name'])) ?>"<?= invalid_attrs($errors, 'full_name') ?>>
+            <?= field_feedback($errors, 'full_name') ?>
           </div>
           <div class="form-row">
             <div class="form-group col-md-6">
               <label for="username">Username <span class="text-danger">*</span></label>
-              <input type="text" class="form-control" id="username" name="username" required maxlength="50" pattern="[A-Za-z0-9_]{3,50}"
-                     autocomplete="off" value="<?= e(old('username', $user['username'])) ?>"
+              <input type="text" class="form-control<?= invalid_class($errors, 'username') ?>" id="username" name="username" required maxlength="50" pattern="[A-Za-z0-9_]{3,50}"
+                     autocomplete="off" value="<?= e(old('username', $user['username'])) ?>"<?= invalid_attrs($errors, 'username') ?>
                      data-check="username" data-exclude-id="<?= $id ?>" data-check-message="Username is already taken.">
+              <?= field_feedback($errors, 'username') ?>
               <div class="invalid-feedback js-exists"></div>
               <small class="form-text text-muted">3–50 letters, numbers, or underscores.</small>
             </div>
             <div class="form-group col-md-6">
               <label for="email">Email <span class="text-danger">*</span></label>
-              <input type="email" class="form-control" id="email" name="email" required maxlength="150" autocomplete="off"
-                     value="<?= e(old('email', $user['email'])) ?>"
+              <input type="email" class="form-control<?= invalid_class($errors, 'email') ?>" id="email" name="email" required maxlength="150" autocomplete="off"
+                     value="<?= e(old('email', $user['email'])) ?>"<?= invalid_attrs($errors, 'email') ?>
                      data-check="email" data-exclude-id="<?= $id ?>" data-check-message="Email is already registered.">
+              <?= field_feedback($errors, 'email') ?>
               <div class="invalid-feedback js-exists"></div>
             </div>
           </div>
           <div class="form-row">
             <div class="form-group col-md-6">
               <label for="role">Role <span class="text-danger">*</span></label>
-              <select class="custom-select" id="role" name="role" <?= $isSelf ? 'disabled' : '' ?>>
+              <select class="custom-select<?= invalid_class($errors, 'role') ?>" id="role" name="role" <?= $isSelf ? 'disabled' : '' ?><?= invalid_attrs($errors, 'role') ?>>
                 <?php foreach (ROLES as $key => $text): ?>
                   <option value="<?= e($key) ?>" <?= old('role', $user['role']) === $key ? 'selected' : '' ?>><?= e($text) ?></option>
                 <?php endforeach; ?>
               </select>
+              <?= field_feedback($errors, 'role') ?>
               <?php if ($isSelf): ?><input type="hidden" name="role" value="manager"><?php endif; ?>
             </div>
             <div class="form-group col-md-6">
               <label for="status">Status <span class="text-danger">*</span></label>
-              <select class="custom-select" id="status" name="status" <?= $isSelf ? 'disabled' : '' ?>>
+              <select class="custom-select<?= invalid_class($errors, 'status') ?>" id="status" name="status" <?= $isSelf ? 'disabled' : '' ?><?= invalid_attrs($errors, 'status') ?>>
                 <option value="active" <?= old('status', $user['status']) === 'active' ? 'selected' : '' ?>>Active</option>
                 <option value="inactive" <?= old('status', $user['status']) === 'inactive' ? 'selected' : '' ?>>Inactive</option>
               </select>
+              <?= field_feedback($errors, 'status') ?>
               <?php if ($isSelf): ?><input type="hidden" name="status" value="active"><?php endif; ?>
             </div>
           </div>
           <div class="form-group mb-0">
             <label for="password"><?= $isEdit ? 'Reset password' : 'Password <span class="text-danger">*</span>' ?></label>
             <div class="input-group">
-              <input type="password" class="form-control" id="password" name="password" minlength="8" maxlength="72" autocomplete="new-password"
-                     <?= $isEdit ? 'placeholder="Leave blank to keep the current password"' : 'required' ?>>
+              <input type="password" class="form-control<?= invalid_class($errors, 'password') ?>" id="password" name="password" minlength="8" maxlength="72" autocomplete="new-password"
+                     <?= $isEdit ? 'placeholder="Leave blank to keep the current password"' : 'required' ?><?= invalid_attrs($errors, 'password') ?>>
               <div class="input-group-append">
                 <button type="button" class="btn btn-outline-secondary" data-toggle-password="#password" aria-label="Show password"><i class="fas fa-eye"></i></button>
               </div>
             </div>
+            <?= field_feedback($errors, 'password') ?>
             <small class="form-text text-muted">At least 8 characters with a letter and a number. Stored as a bcrypt hash.</small>
           </div>
         </div>

@@ -43,11 +43,11 @@ $today = date('Y-m-d');
   <div class="card-body">
     <table class="table table-hover js-datatable" data-export="true" data-title="FFMPC Loans" data-order='[[0,"desc"]]'>
       <thead>
-        <tr><th>Loan</th><th>Member</th><th>Product</th><th class="num">Principal</th><th>Term</th><th>Applied</th><th>Next due</th><th class="num">Outstanding</th><th>Status</th></tr>
+        <tr><th>Loan</th><th>Member</th><th>Product</th><th class="num">Principal</th><th>Term</th><th>Applied</th><th>Next due</th><th class="num">Outstanding</th><th>Status</th><th></th></tr>
       </thead>
       <tbody>
       <?php foreach ($loans as $l): $overdue = $l['status'] === 'released' && $l['next_due'] && $l['next_due'] < $today; ?>
-        <tr>
+        <tr data-href="dashboard.php?page=loan_view&id=<?= (int) $l['loan_id'] ?>">
           <td data-order="<?= (int) $l['loan_id'] ?>"><a href="dashboard.php?page=loan_view&id=<?= (int) $l['loan_id'] ?>" class="font-weight-bold">#<?= (int) $l['loan_id'] ?></a></td>
           <td><a href="dashboard.php?page=member_view&id=<?= (int) $l['member_id'] ?>"><?= e($l['member_name']) ?></a><div class="small text-muted"><?= e($l['member_no']) ?></div></td>
           <td><?= e($l['product_name']) ?></td>
@@ -62,6 +62,7 @@ $today = date('Y-m-d');
           </td>
           <td class="num" data-order="<?= e($l['outstanding_balance']) ?>"><?= e(money($l['outstanding_balance'])) ?></td>
           <td><?= badge($l['status']) ?></td>
+          <td class="text-right"><a href="dashboard.php?page=loan_view&id=<?= (int) $l['loan_id'] ?>" class="btn btn-sm btn-light" title="View loan #<?= (int) $l['loan_id'] ?>" aria-label="View loan #<?= (int) $l['loan_id'] ?>"><i class="fas fa-eye" aria-hidden="true"></i></a></td>
         </tr>
       <?php endforeach; ?>
       </tbody>

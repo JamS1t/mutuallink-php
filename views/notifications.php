@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 // DFD 6.5 — reminders for approaching and overdue payments (recorded; staff send them).
 $title = 'Payment reminders';
-$subtitle = 'Generated from the schedules. Send each by email (needs internet) or text, then mark it sent.';
+$subtitle = 'Generated from the schedules. FFMPC prefers text messages (SMS): tap the phone icon to open the SMS with the message ready, or email, then mark it sent.';
 $back = 'dashboard.php?page=notifications';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -52,21 +52,57 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             audit_log('generate', 'notifications', null, "$created reminder(s) created");
             $pdo->commit();
             flash('success', $created > 0 ? "$created new reminder(s) ready to send." : 'No new reminders: everything due is already queued.');
-        } elseif (in_array($action, ['mark_sent', 'mark_failed', 'delete'], true)) {
-            require_permission('notifications', $action === 'delete' ? 'delete' : 'update');
+        } elseif (in_array($action, ['mark_sent', 'mark_failed', 'mark_pending', 'delete', 'restore'], true)) {
+            // mark_pending/restore exist so the success toast's Undo button can
+            // reverse a non-financial action; only reminders (no money) can be undone.
+            require_permission('notifications', in_array($action, ['delete', 'restore'], true) ? 'delete' : 'update');
             $id = post_id('notification_id');
             if ($action === 'delete') {
+                $get = $pdo->prepare('SELECT member_id, loan_id, notification_type, message, created_by FROM notifications WHERE notification_id = :id AND status <> :sent');
+                $get->bindValue(':id', $id, PDO::PARAM_INT);
+                $get->bindValue(':sent', 'sent');
+                $get->execute();
+                $row = $get->fetch();
+                if (!$row) {
+                    flash('error', 'That reminder cannot be changed (it may already be sent).');
+                    redirect($back);
+                }
                 $st = $pdo->prepare("DELETE FROM notifications WHERE notification_id = :id AND status <> 'sent'");
+            } elseif ($action === 'restore') {
+                $st = $pdo->prepare('INSERT INTO notifications (member_id, loan_id, notification_type, message, created_by) VALUES (:m, :l, :t, :msg, :u)');
+            } elseif ($action === 'mark_pending') {
+                $st = $pdo->prepare("UPDATE notifications SET status = 'pending', date_sent = NULL WHERE notification_id = :id AND status IN ('sent','failed')");
             } else {
                 $st = $pdo->prepare("UPDATE notifications SET status = :s, date_sent = IF(:s2 = 'sent', NOW(), NULL) WHERE notification_id = :id AND status IN ('pending','failed')");
                 $st->bindValue(':s', $action === 'mark_sent' ? 'sent' : 'failed');
                 $st->bindValue(':s2', $action === 'mark_sent' ? 'sent' : 'failed');
             }
-            $st->bindValue(':id', $id, PDO::PARAM_INT);
+            if ($action === 'restore') {
+                $st->bindValue(':m', (int) input('member_id'), PDO::PARAM_INT);
+                $st->bindValue(':l', (int) input('loan_id'), PDO::PARAM_INT);
+                $st->bindValue(':t', input('notification_type') === 'overdue' ? 'overdue' : 'upcoming');
+                $st->bindValue(':msg', input('message'));
+                $st->bindValue(':u', current_user_id(), PDO::PARAM_INT);
+            } else {
+                $st->bindValue(':id', $id, PDO::PARAM_INT);
+            }
             $st->execute();
-            if ($st->rowCount() === 1) {
-                audit_log($action, 'notifications', $id);
-                flash('success', ['mark_sent' => 'Marked as sent.', 'mark_failed' => 'Marked as failed.', 'delete' => 'Reminder removed.'][$action]);
+            if ($st->rowCount() >= 1) {
+                audit_log($action, 'notifications', $id ?: null);
+                if ($action === 'mark_sent' || $action === 'mark_failed') {
+                    flash_undo(['mark_sent' => 'Marked as sent.', 'mark_failed' => 'Marked as failed.'][$action], $back,
+                        ['action' => 'mark_pending', 'notification_id' => (string) $id]);
+                } elseif ($action === 'delete') {
+                    flash_undo('Reminder removed.', $back, [
+                        'action' => 'restore', 'member_id' => (string) $row['member_id'], 'loan_id' => (string) $row['loan_id'],
+                        'notification_type' => (string) $row['notification_type'], 'message' => (string) $row['message'],
+                        'created_by' => (string) $row['created_by'],
+                    ]);
+                } elseif ($action === 'mark_pending') {
+                    flash('success', 'Undo: the reminder is back in the to-send list.');
+                } else {
+                    flash('success', 'Undo: the reminder is restored to the list.');
+                }
             } else {
                 flash('error', 'That reminder cannot be changed (it may already be sent).');
             }
@@ -117,28 +153,32 @@ if (can('notifications', 'create')) {
         <tr>
           <td data-order="<?= (int) $n['notification_id'] ?>"><?= (int) $n['notification_id'] ?></td>
           <td><a href="dashboard.php?page=member_view&id=<?= (int) $n['member_id'] ?>" class="font-weight-bold"><?= e($n['member_name']) ?></a>
-            <div class="small text-muted"><?= e($n['email'] ?: 'no email') ?> · <?= e($n['contact_no'] ?: 'no mobile') ?></div></td>
+            <div class="small text-muted"><?= e($n['contact_no'] ?: 'no mobile') ?> · <?= e($n['email'] ?: 'no email') ?></div></td>
           <td><?= badge($n['notification_type']) ?><div class="small"><a href="dashboard.php?page=loan_view&id=<?= (int) $n['loan_id'] ?>">Loan #<?= (int) $n['loan_id'] ?></a></div></td>
           <td class="small"><?= e($n['message']) ?></td>
           <td><?= badge($n['status']) ?><?= $n['date_sent'] ? '<div class="small text-muted">' . e(fmt_date($n['date_sent'], 'M d, g:i A')) . '</div>' : '' ?></td>
           <td class="text-right text-nowrap">
             <?php if (can('notifications', 'update') && in_array($n['status'], ['pending', 'failed'], true)): ?>
-              <?php if ($mailto): ?><a href="<?= e($mailto) ?>" class="btn btn-sm btn-light" title="Open in email app"><i class="fas fa-envelope"></i></a><?php endif; ?>
+              <?php if ($n['contact_no']): ?>
+                <a href="sms:<?= e(preg_replace('/[^\d+]/', '', $n['contact_no'])) ?>?body=<?= rawurlencode($n['message']) ?>" class="btn btn-sm btn-primary" title="Open in SMS app (preferred)" aria-label="Open in SMS app for <?= e($n['member_name']) ?>">
+                  <i class="fas fa-sms" aria-hidden="true"></i></a>
+              <?php endif; ?>
+              <?php if ($mailto): ?><a href="<?= e($mailto) ?>" class="btn btn-sm btn-light" title="Open in email app" aria-label="Open in email app for <?= e($n['member_name']) ?>"><i class="fas fa-envelope" aria-hidden="true"></i></a><?php endif; ?>
               <?php foreach (['mark_sent' => ['fa-check', 'btn-outline-success', 'Mark sent'], 'mark_failed' => ['fa-times', 'btn-outline-warning', 'Mark failed']] as $act => [$icon, $cls, $tip]): ?>
                 <form method="post" action="" class="d-inline ml-form">
                   <?= csrf_field() ?>
                   <input type="hidden" name="action" value="<?= $act ?>">
                   <input type="hidden" name="notification_id" value="<?= (int) $n['notification_id'] ?>">
-                  <button type="submit" class="btn btn-sm <?= $cls ?>" title="<?= $tip ?>"><i class="fas <?= $icon ?>"></i></button>
+                  <button type="submit" class="btn btn-sm <?= $cls ?>" title="<?= $tip ?>" aria-label="<?= e($tip) ?> reminder for <?= e($n['member_name']) ?>"><i class="fas <?= $icon ?>" aria-hidden="true"></i></button>
                 </form>
               <?php endforeach; ?>
             <?php endif; ?>
             <?php if (can('notifications', 'delete') && $n['status'] !== 'sent'): ?>
-              <form method="post" action="" class="d-inline ml-form" data-confirm="Remove this unsent reminder?" data-confirm-button="Remove">
+              <form method="post" action="" class="d-inline ml-form">
                 <?= csrf_field() ?>
                 <input type="hidden" name="action" value="delete">
                 <input type="hidden" name="notification_id" value="<?= (int) $n['notification_id'] ?>">
-                <button type="submit" class="btn btn-sm btn-outline-danger" title="Remove"><i class="fas fa-trash"></i></button>
+                <button type="submit" class="btn btn-sm btn-outline-danger" title="Remove" aria-label="Remove reminder for <?= e($n['member_name']) ?>"><i class="fas fa-trash" aria-hidden="true"></i></button>
               </form>
             <?php endif; ?>
           </td>
