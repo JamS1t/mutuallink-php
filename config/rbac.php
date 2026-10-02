@@ -49,6 +49,8 @@ const RBAC = [
                         'create' => ['loan_officer'], 'update' => ['loan_officer'], 'delete' => ['loan_officer']],
     'reports'       => ['view' => ALL_ROLES],
     'report_daily'  => ['view' => ['manager', 'cashier', 'bookkeeper', 'auditor']],
+    'eod_close'     => ['view' => ['manager', 'cashier', 'bookkeeper', 'auditor']],  // end-of-day balancing of the posted receipts
+    'reconcile'     => ['view' => ['manager', 'bookkeeper', 'auditor']],             // schedule/balance vs ledger integrity check
     'report_loans'  => ['view' => ['manager', 'loan_officer', 'auditor']],
     'report_aging'  => ['view' => ['manager', 'loan_officer', 'auditor']],
     'report_savings'=> ['view' => ['manager', 'bookkeeper', 'auditor']],
@@ -137,4 +139,56 @@ function require_csrf(bool $json = false): void
     flash('error', 'Security token expired. Please try again.');
     header('Location: ' . ($_SERVER['REQUEST_URI'] ?? 'dashboard.php'));
     exit;
+}
+
+/* ---------------- Sign-in throttle (DB-backed) ----------------
+ * MAX_LOGIN_FAILURES failed sign-ins for one identifier (username/email as
+ * submitted) from one IP lock the PAIR out for LOGIN_LOCK_MINUTES. The
+ * counter lives in the login_attempts table, so clearing cookies or moving
+ * to a new session no longer bypasses it (the old session counter did).
+ */
+
+const MAX_LOGIN_FAILURES = 5;
+const LOGIN_LOCK_MINUTES = 15;
+
+/** Seconds before another sign-in attempt is allowed for this identifier+IP (0 = not locked). */
+function login_lock_seconds(string $identifier): int
+{
+    $stmt = db()->prepare('SELECT locked_until FROM login_attempts WHERE identifier = :i AND ip = :ip');
+    $stmt->execute([':i' => $identifier, ':ip' => $_SERVER['REMOTE_ADDR'] ?? '']);
+    $until = $stmt->fetchColumn();
+    return $until ? max(0, strtotime((string) $until) - time()) : 0;
+}
+
+/**
+ * Records one failed attempt; at MAX_LOGIN_FAILURES locks the identifier+IP
+ * (and audits the lock). Returns the seconds locked, 0 when not yet locked.
+ */
+function login_register_failure(string $identifier): int
+{
+    $ip = $_SERVER['REMOTE_ADDR'] ?? '';
+    $pdo = db();
+    $pdo->prepare(
+        'INSERT INTO login_attempts (identifier, ip, failures, last_attempt)
+         VALUES (:i, :ip, 1, NOW())
+         ON DUPLICATE KEY UPDATE failures = failures + 1, last_attempt = NOW()'
+    )->execute([':i' => $identifier, ':ip' => $ip]);
+    $stmt = $pdo->prepare('SELECT failures FROM login_attempts WHERE identifier = :i AND ip = :ip');
+    $stmt->execute([':i' => $identifier, ':ip' => $ip]);
+    if ((int) $stmt->fetchColumn() < MAX_LOGIN_FAILURES) {
+        return 0;
+    }
+    $pdo->prepare('UPDATE login_attempts SET locked_until = DATE_ADD(NOW(), INTERVAL :m MINUTE), failures = 0
+                    WHERE identifier = :i AND ip = :ip')
+        ->execute([':m' => LOGIN_LOCK_MINUTES, ':i' => $identifier, ':ip' => $ip]);
+    audit_log('login_locked', 'login_attempts', null,
+        "Too many sign-in failures for \"$identifier\" from IP $ip: locked for " . LOGIN_LOCK_MINUTES . ' minutes');
+    return LOGIN_LOCK_MINUTES * 60;
+}
+
+/** A successful sign-in clears the counter for that identifier+IP. */
+function login_clear_failures(string $identifier): void
+{
+    db()->prepare('DELETE FROM login_attempts WHERE identifier = :i AND ip = :ip')
+        ->execute([':i' => $identifier, ':ip' => $_SERVER['REMOTE_ADDR'] ?? '']);
 }

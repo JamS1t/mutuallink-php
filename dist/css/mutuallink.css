@@ -153,6 +153,29 @@ a:hover { color: var(--ml-green-dark); }
   body { background: #fff; }
 }
 
+/* ---------- Receipt: thermal / dot-matrix variant (~80mm roll, Table 1) ----------
+ * Active only for a print run started with "Print (thermal 80mm)" (the body then
+ * carries data-print-mode="thermal"; mutuallink.js removes it after printing).
+ * Minimal markup, monospace-safe, no table borders — same data as the report
+ * layout. Set the printer driver's paper to 80mm; roll feed does the rest. */
+body[data-print-mode="thermal"] .print-doc.receipt {
+  width: 76mm; max-width: 76mm; margin: 0; padding: 1mm 2mm; border: 0; border-radius: 0;
+  font-family: "Courier New", Consolas, monospace; font-size: 8.5pt; line-height: 1.35;
+  color: #000; background: #fff;
+}
+body[data-print-mode="thermal"] .print-doc.receipt .print-head { border-bottom: 1px dashed #000; padding-bottom: 4px; margin-bottom: 4px; }
+body[data-print-mode="thermal"] .print-doc.receipt .print-head h2 { font-size: 9pt; }
+body[data-print-mode="thermal"] .print-doc.receipt .print-head p { font-size: 7.5pt; }
+body[data-print-mode="thermal"] .print-doc.receipt img { width: 32px; height: 32px; }
+body[data-print-mode="thermal"] .print-doc.receipt table { margin: 2px 0; }
+body[data-print-mode="thermal"] .print-doc.receipt table td { border: 0 !important; border-top: 0 !important; padding: 0 0 1px; vertical-align: top; }
+body[data-print-mode="thermal"] .print-doc.receipt .border-top { border-top: 1px dashed #000 !important; }
+body[data-print-mode="thermal"] .print-doc.receipt hr { border-top: 1px dashed #000; margin: 4px 0; }
+body[data-print-mode="thermal"] .print-doc.receipt .h5 { font-size: 9pt; }
+body[data-print-mode="thermal"] .print-doc.receipt .small { font-size: 7.5pt; }
+body[data-print-mode="thermal"] .print-doc.receipt .alert { border: 1px dashed #a00; padding: 2px 4px; }
+body[data-print-mode="thermal"] .print-doc.receipt .mb-4 { margin-bottom: 8px !important; }
+
 /* ---------- Utilities missing from Bootstrap 4 ---------- */
 .opacity-50 { opacity: .55; }
 

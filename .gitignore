@@ -1,0 +1,5 @@
+# Real credentials — never commit (ship config/secrets.example.php instead)
+config/secrets.php
+
+# Local database backups produced by database/backup.bat
+database/backups/

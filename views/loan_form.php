@@ -157,6 +157,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             redirect('dashboard.php?page=loan_view&id=' . $newId);
         } catch (DomainException $e) {
             flash('error', $e->getMessage());
+        } catch (PDOException $e) {
+            // One loan per product (A12) is also a database rule (uq_loans_one_active);
+            // present a duplicate-key error on it as the friendly rule violation.
+            $mapped = active_loan_violation($e);
+            if ($mapped instanceof DomainException) {
+                flash('error', $mapped->getMessage());
+            } else {
+                db_failure($mapped);
+            }
         } catch (Throwable $e) {
             db_failure($e);
         }

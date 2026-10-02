@@ -98,12 +98,16 @@ check('loan paid', val('SELECT status FROM loans WHERE loan_id = ?', [$loanId]),
 check('outstanding 0', val('SELECT outstanding_balance FROM loans WHERE loan_id = ?', [$loanId]), 0);
 check('all installments paid', val("SELECT COUNT(*) FROM amortization_schedule WHERE loan_id = ? AND status <> 'paid'", [$loanId]), 0);
 
-// Void: only the latest receipt; restores everything it covered
+// Void: only the latest receipt; restores everything it covered. The earlier
+// partial payment (p1) is a separate, still-posted receipt — its principal
+// stays deducted and its installment stays partial.
+$p1Principal = array_sum(array_map(fn ($l) => (float) $l['principal'], $p1['lines']));
 expect_domain_error('void older receipt refused', fn () => void_payment($p1['payment_id'], 'test'));
 void_payment($p2['payment_id'], 'Encoding error');
-check('void restores outstanding', val('SELECT outstanding_balance FROM loans WHERE loan_id = ?', [$loanId]), 10000.00);
+check('void restores outstanding (p1 partial payment kept)', val('SELECT outstanding_balance FROM loans WHERE loan_id = ?', [$loanId]), money_round(10000.00 - $p1Principal));
 check('void reopens loan', val('SELECT status FROM loans WHERE loan_id = ?', [$loanId]), 'released');
-check('void restores installments', val("SELECT COUNT(*) FROM amortization_schedule WHERE loan_id = ? AND status = 'unpaid'", [$loanId]), 3);
+check('void restores installments not covered by p1', val("SELECT COUNT(*) FROM amortization_schedule WHERE loan_id = ? AND status = 'unpaid'", [$loanId]), 2);
+check('void keeps p1 partial on installment 1', val("SELECT status FROM amortization_schedule WHERE loan_id = ? AND installment_no = 1", [$loanId]), 'partial');
 check('void keeps p1 charges', val('SELECT pd_interest_paid FROM loans WHERE loan_id = ?', [$loanId]), $p1Pdi);
 check('all 3 lines void', val("SELECT COUNT(*) FROM payments WHERE or_no = ? AND status = 'void'", [$p2['or_no']]), 3);
 expect_domain_error('void twice refused', fn () => void_payment($p2['payment_id'], 'again'));

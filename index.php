@@ -11,21 +11,18 @@ if (session_is_valid()) {
     redirect('dashboard.php');
 }
 
-const MAX_ATTEMPTS = 5;
-const LOCK_SECONDS = 30;
-
 $error = '';
 $loginId = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $loginId = input('login_id');
     $password = is_string($_POST['password'] ?? null) ? $_POST['password'] : '';
-    $lockedUntil = (int) ($_SESSION['login_locked_until'] ?? 0);
 
     if (!csrf_is_valid()) {
         $error = 'Your session expired. Please try again.';
-    } elseif ($lockedUntil > time()) {
-        $error = 'Too many failed attempts. Please wait ' . ($lockedUntil - time()) . ' seconds.';
+    } elseif (($wait = login_lock_seconds($loginId)) > 0) {
+        // DB-backed throttle: survives clearing cookies or opening a new session
+        $error = 'Too many failed attempts. Please try again in ' . (int) ceil($wait / 60) . ' more minute(s).';
     } elseif ($loginId === '' || $password === '') {
         $error = 'Please enter both username/email and password.';
     } else {
@@ -45,7 +42,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 db()->prepare('UPDATE users SET password_hash = :h WHERE user_id = :id')
                     ->execute([':h' => password_hash($password, PASSWORD_BCRYPT, PASSWORD_OPTIONS), ':id' => $user['user_id']]);
             }
-            unset($_SESSION['login_failures'], $_SESSION['login_locked_until']);
+            login_clear_failures($loginId);
             begin_user_session($user);
             db()->prepare('UPDATE users SET last_login = NOW() WHERE user_id = :id')->execute([':id' => $user['user_id']]);
             audit_log('login', 'users', (int) $user['user_id'], 'Signed in');
@@ -55,11 +52,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         // Same message for unknown user and wrong password (no account enumeration).
         $error = 'Invalid username or password.';
-        $_SESSION['login_failures'] = (int) ($_SESSION['login_failures'] ?? 0) + 1;
-        if ($_SESSION['login_failures'] >= MAX_ATTEMPTS) {
-            $_SESSION['login_locked_until'] = time() + LOCK_SECONDS;
-            $_SESSION['login_failures'] = 0;
-            $error = 'Too many failed attempts. Please wait ' . LOCK_SECONDS . ' seconds.';
+        if (login_register_failure($loginId) > 0) {
+            $error = 'Too many failed attempts. Try again in ' . LOGIN_LOCK_MINUTES . ' minutes.';
         }
     }
     if ($error !== '') {

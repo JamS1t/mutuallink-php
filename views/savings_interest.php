@@ -13,22 +13,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     require_permission('savings_interest', 'post');
     $errors = [];
     $pdo = db();
+    // Rate is needed by BOTH posting actions (regular savings and time deposits)
+    $pct = (float) setting('savings_interest_pct');
+    if ($pct <= 0) {
+        $errors[] = 'The savings interest rate is not configured. Ask the Manager to set it in Settings.';
+    }
     try {
         if ($action === 'post_regular') {
             $period = req($errors, 'period', 'Quarter label (e.g. 2026-Q3)', 20);
-            $pct = (float) setting('savings_interest_pct');
-            if ($pct <= 0) {
-                $errors[] = 'The savings interest rate is not configured. Ask the Manager to set it in Settings.';
-            }
             if (!$errors) {
                 $pdo->beginTransaction();
                 $stmt = $pdo->query("SELECT savings_id, balance FROM savings_accounts WHERE account_type = 'regular_savings' AND status = 'active' AND balance > 0 ORDER BY savings_id");
                 $accounts = $stmt->fetchAll();
-                $hasPeriod = $pdo->prepare("SELECT COUNT(*) FROM savings_transactions WHERE savings_id = :s AND txn_type = 'interest' AND remarks = :r");
+                $hasPeriod = $pdo->prepare("SELECT COUNT(*) FROM savings_transactions WHERE savings_id = :s AND txn_type = 'interest' AND interest_period = :p");
                 $posted = $skipped = 0;
                 $total = 0.0;
                 foreach ($accounts as $a) {
-                    $hasPeriod->execute([':s' => $a['savings_id'], ':r' => 'Interest ' . $period]);
+                    $hasPeriod->execute([':s' => $a['savings_id'], ':p' => $period]);
                     if ((int) $hasPeriod->fetchColumn() > 0) {
                         $skipped++;
                         continue;
@@ -38,7 +39,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $skipped++;
                         continue;
                     }
-                    savings_entry((int) $a['savings_id'], 'interest', $amount, 1, date('Y-m-d'), 'Interest ' . $period, null, false);
+                    savings_entry((int) $a['savings_id'], 'interest', $amount, 1, date('Y-m-d'), 'Interest ' . $period, null, false, false, $period);
                     $posted++;
                     $total = money_round($total + $amount);
                 }
@@ -50,7 +51,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         } elseif ($action === 'post_td') {
             $savingsId = post_id('savings_id');
-            $term = req($errors, 'term_label', 'Term label (e.g. Jan - Jun 2026)', 40);
+            $term = req($errors, 'term_label', 'Term label (e.g. Jan - Jun 2026)', 20);
             if (!$savingsId) {
                 $errors[] = 'Select the time deposit account.';
             }
@@ -66,7 +67,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     if ($amount <= 0) {
                         $errors[] = 'The account has no balance to earn interest on.';
                     } else {
-                        savings_entry($savingsId, 'interest', $amount, 1, date('Y-m-d'), 'Interest ' . $term, null, false);
+                        savings_entry($savingsId, 'interest', $amount, 1, date('Y-m-d'), 'Interest ' . $term, null, false, false, $term);
                         audit_log('interest', 'savings_transactions', $savingsId, "Time deposit interest ($term): " . money($amount));
                         $pdo->commit();
                         flash('success', 'Time deposit interest of ' . money($amount) . " posted for the term $term.");
@@ -85,6 +86,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $pdo->rollBack();
         }
         flash('error', $e->getMessage());
+    } catch (PDOException $e) {
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+        // The uq_savings_txn_period unique key is the hard guarantee that an
+        // account can never be posted interest twice for the same period/term.
+        if (($e->errorInfo[1] ?? null) == 1062
+            && str_contains((string) ($e->errorInfo[2] ?? ''), 'uq_savings_txn_period')) {
+            flash('error', 'Interest for this period/term was already posted to that account.');
+        } else {
+            db_failure($e);
+        }
     } catch (Throwable $e) {
         db_failure($e);
     }
@@ -152,7 +165,7 @@ $pct = (float) setting('savings_interest_pct');
                       <?= csrf_field() ?>
                       <input type="hidden" name="action" value="post_td">
                       <input type="hidden" name="savings_id" value="<?= (int) $t['savings_id'] ?>">
-                      <input type="text" name="term_label" class="form-control form-control-sm d-inline-block w-auto" required maxlength="40" placeholder="Term (e.g., Jan-Jun 2026)">
+                      <input type="text" name="term_label" class="form-control form-control-sm d-inline-block w-auto" required maxlength="20" placeholder="Term (e.g., Jan-Jun 2026)">
                       <button type="submit" class="btn btn-sm btn-outline-primary">Post</button>
                     </form>
                   <?php endif; ?>

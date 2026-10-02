@@ -20,6 +20,8 @@ $menu = [
     ]],
     ['header' => 'Reports', 'items' => [
         ['reports', 'Reports', 'fas fa-chart-bar', 'reports'],
+        ['eod_close', 'End-of-day close', 'fas fa-calendar-check', 'eod_close'],
+        ['reconcile', 'Reconciliation', 'fas fa-clipboard-check', 'reconcile'],
         ['audit', 'Audit Log', 'fas fa-history', 'audit'],
     ]],
     ['header' => 'Administration', 'items' => [

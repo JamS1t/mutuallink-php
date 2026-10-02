@@ -545,11 +545,16 @@ function steps_nav(array $steps, int $current): string
  * (SELECT … FOR UPDATE) so two postings can never both read the same
  * starting balance. Business-rule violations throw DomainException.
  *
+ * $interestPeriod records the quarter/term an INTEREST posting belongs to
+ * (clarification A17); the uq_savings_txn_period unique key then makes a
+ * double posting for the same period impossible in the database.
+ *
  * @param int $direction +1 adds to the balance, -1 subtracts
  * @return array{txn_id:int, or_no:?string, balance:float}
  */
 function savings_entry(int $savingsId, string $txnType, float $amount, int $direction, string $date,
-                       ?string $remarks = null, ?int $reversesTxnId = null, bool $issueOr = true, bool $passbookPresented = false): array
+                       ?string $remarks = null, ?int $reversesTxnId = null, bool $issueOr = true,
+                       bool $passbookPresented = false, ?string $interestPeriod = null): array
 {
     $pdo = db();
     $stmt = $pdo->prepare('SELECT balance, status, account_type FROM savings_accounts WHERE savings_id = :id FOR UPDATE');
@@ -589,11 +594,12 @@ function savings_entry(int $savingsId, string $txnType, float $amount, int $dire
     $orNo = $issueOr ? next_or_no() : null;
 
     $pdo->prepare(
-        'INSERT INTO savings_transactions (savings_id, txn_date, txn_type, amount, running_balance, or_no, posted_by, reverses_txn_id, passbook_presented, remarks)
-         VALUES (:s, :d, :t, :a, :rb, :or, :u, :rev, :pb, :rem)'
+        'INSERT INTO savings_transactions (savings_id, txn_date, txn_type, amount, running_balance, or_no, posted_by, reverses_txn_id, passbook_presented, remarks, interest_period)
+         VALUES (:s, :d, :t, :a, :rb, :or, :u, :rev, :pb, :rem, :per)'
     )->execute([
         ':s' => $savingsId, ':d' => $date, ':t' => $txnType, ':a' => $amount, ':rb' => $newBalance,
         ':or' => $orNo, ':u' => current_user_id(), ':rev' => $reversesTxnId, ':pb' => $passbookPresented ? 1 : 0, ':rem' => $remarks,
+        ':per' => $interestPeriod,
     ]);
     $txnId = (int) $pdo->lastInsertId();
 

@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 // DFD 6.5 — reminders for approaching and overdue payments (recorded; staff send them).
 $title = 'Payment reminders';
-$subtitle = 'Generated from the schedules. FFMPC prefers text messages (SMS): tap the phone icon to open the SMS with the message ready, or email, then mark it sent.';
+$subtitle = 'Generated from the schedules. FFMPC prefers text messages (SMS): tap the phone icon to open the SMS with the message ready, or email, then mark it sent. Pending reminders with an email on file are also sent by the scheduled email task (SMTP settings below).';
 $back = 'dashboard.php?page=notifications';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -52,6 +52,50 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             audit_log('generate', 'notifications', null, "$created reminder(s) created");
             $pdo->commit();
             flash('success', $created > 0 ? "$created new reminder(s) ready to send." : 'No new reminders: everything due is already queued.');
+        } elseif ($action === 'save_smtp') {
+            // Email settings (Manager): the SMTP account the reminder cron (cron_send_reminders.php) sends through.
+            require_permission('settings', 'update');
+            $errors = [];
+            $smtp = [
+                'smtp_host' => req($errors, 'smtp_host', 'SMTP host', 100),
+                'smtp_port' => input('smtp_port') !== '' ? (int) int_in($errors, 'smtp_port', 'SMTP port', 1, 65535) : 587,
+                'smtp_user' => req($errors, 'smtp_user', 'SMTP username', 150),
+                'smtp_pass' => input('smtp_pass'), // blank = keep the saved app password
+                'smtp_from' => email_in($errors, 'smtp_from', 'From address', true),
+            ];
+            if (!$errors && $smtp['smtp_pass'] === '' && setting('smtp_pass') === '') {
+                $errors['smtp_pass'] = 'Enter the app password (it is not saved yet).';
+            }
+            if ($errors) {
+                flash_errors($errors);
+            } else {
+                try {
+                    $pdo->beginTransaction();
+                    $save = $pdo->prepare(
+                        'INSERT INTO settings (setting_key, setting_value, label) VALUES (:k, :v, :l)
+                         ON DUPLICATE KEY UPDATE setting_value = :v2'
+                    );
+                    $labels = [
+                        'smtp_host' => 'SMTP server for reminder emails (e.g. smtp.gmail.com)',
+                        'smtp_port' => 'SMTP port (587 STARTTLS, or 465 SSL)',
+                        'smtp_user' => 'SMTP username (the full Gmail address)',
+                        'smtp_pass' => 'SMTP app password — never the sign-in password',
+                        'smtp_from' => 'From address for reminder emails (the same Gmail address)',
+                    ];
+                    foreach ($smtp as $k => $v) {
+                        if ($k === 'smtp_pass' && $v === '') {
+                            continue; // blank = keep the saved app password
+                        }
+                        $save->execute([':k' => $k, ':v' => (string) $v, ':l' => $labels[$k], ':v2' => (string) $v]);
+                    }
+                    audit_log('update', 'settings', null, 'SMTP settings for reminder emails updated');
+                    $pdo->commit();
+                    flash('success', 'Email settings saved. Pending reminders will be sent by the scheduled task.');
+                } catch (Throwable $e) {
+                    db_failure($e);
+                }
+            }
+            redirect($back);
         } elseif (in_array($action, ['mark_sent', 'mark_failed', 'mark_pending', 'delete', 'restore'], true)) {
             // mark_pending/restore exist so the success toast's Undo button can
             // reverse a non-financial action; only reminders (no money) can be undone.
@@ -156,7 +200,10 @@ if (can('notifications', 'create')) {
             <div class="small text-muted"><?= e($n['contact_no'] ?: 'no mobile') ?> · <?= e($n['email'] ?: 'no email') ?></div></td>
           <td><?= badge($n['notification_type']) ?><div class="small"><a href="dashboard.php?page=loan_view&id=<?= (int) $n['loan_id'] ?>">Loan #<?= (int) $n['loan_id'] ?></a></div></td>
           <td class="small"><?= e($n['message']) ?></td>
-          <td><?= badge($n['status']) ?><?= $n['date_sent'] ? '<div class="small text-muted">' . e(fmt_date($n['date_sent'], 'M d, g:i A')) . '</div>' : '' ?></td>
+          <td><?= badge($n['status']) ?><?= $n['date_sent'] ? '<div class="small text-muted">' . e(fmt_date($n['date_sent'], 'M d, g:i A')) . '</div>' : '' ?>
+            <?php if ($n['status'] === 'failed' && (string) ($n['send_error'] ?? '') !== ''): ?>
+              <div class="small text-danger"><?= e($n['send_error']) ?></div>
+            <?php endif; ?></td>
           <td class="text-right text-nowrap">
             <?php if (can('notifications', 'update') && in_array($n['status'], ['pending', 'failed'], true)): ?>
               <?php if ($n['contact_no']): ?>
@@ -188,3 +235,43 @@ if (can('notifications', 'create')) {
     </table>
   </div>
 </div>
+
+<?php if (can('settings', 'update')): ?>
+<div class="card card-primary card-outline mt-3" id="email-settings">
+  <div class="card-header"><h3 class="card-title"><i class="fas fa-envelope-open-text mr-2"></i>Email settings (SMTP)</h3></div>
+  <div class="card-body">
+    <p class="small text-muted">The scheduled task (<code>cron_send_reminders.php</code>) sends the pending reminders by email through this account — see the README for the Windows Task Scheduler setup. For Gmail: turn on 2-step verification, create an <strong>App password</strong> (16 letters) and enter it below — never the sign-in password. Use host <code>smtp.gmail.com</code>, port <code>587</code>, and the cooperative's Gmail address as username and From address. Email is the only function of MutualLink that needs the internet.</p>
+    <form method="post" action="" class="ml-form">
+      <?= csrf_field() ?>
+      <input type="hidden" name="action" value="save_smtp">
+      <div class="form-row">
+        <div class="form-group col-md-6">
+          <label for="smtp_host">SMTP host <span class="text-danger">*</span></label>
+          <input type="text" class="form-control" id="smtp_host" name="smtp_host" required maxlength="100" placeholder="smtp.gmail.com" value="<?= e(old('smtp_host', setting('smtp_host'))) ?>">
+        </div>
+        <div class="form-group col-md-6">
+          <label for="smtp_port">Port</label>
+          <input type="text" inputmode="numeric" class="form-control" id="smtp_port" name="smtp_port" maxlength="5" placeholder="587" value="<?= e(old('smtp_port', setting('smtp_port') ?: '587')) ?>">
+          <small class="form-text text-muted">587 (STARTTLS) or 465 (SSL).</small>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group col-md-6">
+          <label for="smtp_user">SMTP username <span class="text-danger">*</span></label>
+          <input type="text" class="form-control" id="smtp_user" name="smtp_user" required maxlength="150" placeholder="ffmpc.coop@gmail.com" value="<?= e(old('smtp_user', setting('smtp_user'))) ?>">
+        </div>
+        <div class="form-group col-md-6">
+          <label for="smtp_pass">App password <span class="text-danger">*</span></label>
+          <input type="password" class="form-control" id="smtp_pass" name="smtp_pass" maxlength="100" autocomplete="new-password" placeholder="•••• •••• •••• ••••">
+          <small class="form-text text-muted">Leave blank to keep the saved one<?= setting('smtp_pass') !== '' ? ' (saved: ••••' . e(substr(setting('smtp_pass'), -2)) . ')' : '' ?>.</small>
+        </div>
+      </div>
+      <div class="form-group">
+        <label for="smtp_from">From address <span class="text-danger">*</span></label>
+        <input type="email" class="form-control" id="smtp_from" name="smtp_from" required maxlength="150" placeholder="ffmpc.coop@gmail.com" value="<?= e(old('smtp_from', setting('smtp_from'))) ?>">
+      </div>
+      <button type="submit" class="btn btn-primary"><i class="fas fa-save mr-1"></i> Save email settings</button>
+    </form>
+  </div>
+</div>
+<?php endif; ?>

@@ -13,17 +13,21 @@ Stack (as in the paper, Ch. III): **WampServer** (Apache 2.4, PHP 8.2, MySQL 8.x
 ## 1. Install on WampServer
 
 1. Copy this folder to `C:\wamp64\www\mutuallink`.
-2. Start WampServer (tray icon green).
-3. Open **phpMyAdmin** (`http://localhost/phpmyadmin`) as `root` → **Import** → choose `database/mutuallink.sql` → Go.
+2. **Create the credentials file**: copy `config/secrets.example.php` to `config/secrets.php`. It holds `DB_USER` / `DB_PASS` and is gitignored — never commit it.
+3. Start WampServer (tray icon green).
+4. Open **phpMyAdmin** (`http://localhost/phpmyadmin`) as `root` → **Import** → choose `database/mutuallink.sql` → Go.
    This creates the `mutuallink` database, all tables, seed accounts, and the least-privilege app account `mutuallink_app`.
-4. **Change the app database password** (recommended): in phpMyAdmin run
+5. **Change the app database password** (required — the password shipped in `mutuallink.sql`, like every password in git history, must be treated as compromised): in phpMyAdmin run
    `ALTER USER 'mutuallink_app'@'localhost' IDENTIFIED BY 'your-new-password';`
-   then put the same password in `config/db.php` (`DB_PASS`).
-5. Open `http://localhost/mutuallink` and sign in.
+   then put the same password in `config/secrets.php` (`DB_PASS`).
+6. Open `http://localhost/mutuallink` and sign in.
 
-**Upgrading an existing database**: after pulling changes that came with the FFMC clarification answers, apply
-`database/patch_ffmpc_answers.sql` once (phpMyAdmin → Import, or `mysql -u root -p mutuallink < database\patch_ffmpc_answers.sql`).
-It adds the co-maker member link, the savings-interest transaction type, and the new settings. A fresh `mutuallink.sql` import already has everything.
+**Upgrading an existing database**: after pulling changes, apply the patches once, in order (phpMyAdmin → Import, or
+`mysql -u root -p mutuallink < database\patch_ffmpc_answers.sql`):
+- `database/patch_ffmpc_answers.sql` — the co-maker member link, the savings-interest transaction type, and the new settings;
+- `database/patch_integrity.sql` — the one-running-loan-per-product rule as a database index (A12, friendly error on release), structured savings-interest periods (`savings_transactions.interest_period` + unique key, existing remarks migrated), the SMTP reminder settings, `notifications.send_error` for failed sends, and the `login_attempts` table for the sign-in throttle.
+
+A fresh `mutuallink.sql` import already has everything.
 
 Requirements already enabled in WampServer: `pdo_mysql`, `mbstring`. Apache `AllowOverride All` (default) lets `.htaccess` block the internal folders.
 
@@ -48,7 +52,7 @@ Requirements already enabled in WampServer: `pdo_mysql`, `mbstring`. Apache `All
 | V2 | Loans | Application (collateral + appraisal, net pay, mode of payment) | List, loan record, printable schedule | Approve/reject, release in cash or check (schedule + deductions) | Cancel pending |
 | V2 | Payments | Post payment → one official receipt (may cover several installments) | History | — | Void latest receipt (restores balances) |
 | V3 | Delinquency | Generate aging snapshot · demand letter | List by bracket | — | — |
-| V3 | Reminders | Generate upcoming/overdue | List | Mark sent/failed | Remove unsent |
+| V3 | Reminders | Generate upcoming/overdue | List | Send by email (scheduled task) or mark sent/failed | Remove unsent |
 | V3 | Reports / audit / settings | — | Daily collection, loan status, aging, savings, share capital, salary deduction list, audit log | Settings (Manager) | — |
 
 ## 3. FFMPC rules (from the requirements questionnaire + the answered clarification sheet)
@@ -85,14 +89,40 @@ All rates and minimums are editable in **Settings**. FFMPC's Excel rounds each m
 php tests/loan_calc_test.php     # pure computation checks (no database)
 php tests/loan_flow_test.php     # release → pay → void → renewal against the DATABASE
 ```
-Run `loan_flow_test.php` only on a **freshly imported, disposable** database: it inserts and removes its own test records but advances the OR and member counters.
+Run `loan_flow_test.php` only on a **freshly imported, disposable** database: it inserts and removes its own test records but advances the OR and member counters. Both tests read the database credentials from `config/secrets.php` (README §1, step 2).
 
 ## 5. Backup
 
 Edit the MySQL path in `database/backup.bat`, then double-click it (or schedule it in Task Scheduler). Restore with
 `mysql -u root -p mutuallink < database\backups\mutuallink_YYYYMMDD_HHMM.sql`.
 
-## 6. Defense notes — where each course topic lives
+## 6. Email reminders every 10–15 minutes (Windows Task Scheduler)
+
+Pending reminders whose member has an email address are sent automatically by `cron_send_reminders.php` (CLI only). One run sends **all** due reminders, tolerates failures (the SMTP error is kept on the reminder row, visible in Reminders), and writes one audit entry with the counts. Reminders stay queued when SMTP is not configured.
+
+**One-time setup**
+
+1. As the Manager, open **Reminders → Email settings** and fill in the SMTP account:
+   - Host `smtp.gmail.com`, port `587` (STARTTLS) — or `465` (SSL);
+   - Username and From address: the cooperative's Gmail address;
+   - Password: a Gmail **App password**, never the sign-in password — Google Account → Security → turn on 2-step verification → App passwords → create one (16 letters).
+2. Test once by hand, in a command prompt:
+   `"C:\wamp64\bin\php\php8.2.29\php.exe" "C:\wamp64\www\mutuallink\cron_send_reminders.php"`
+   It prints how many were sent and how many failed.
+
+**Schedule it (every 10 minutes)**
+
+1. Start menu → **Task Scheduler** → **Create Task…**
+2. **General** tab: name it `MutualLink email reminders`; choose *Run only when user is logged on* (simplest on a dedicated office PC).
+3. **Triggers** → New: *Daily*, start today; tick *Repeat task every* → `10 minutes` → *for a duration of* `Indefinitely`; *Enabled* ✓.
+4. **Actions** → New:
+   - Program/script: `"C:\wamp64\bin\php\php8.2.29\php.exe"` (the WampServer PHP 8.2 path);
+   - Add arguments: `"C:\wamp64\www\mutuallink\cron_send_reminders.php"`;
+   - Start in: `C:\wamp64\www\mutuallink`.
+5. **Settings** tab: tick *Run task as soon as possible after a scheduled start is missed*; *Stop the task if it runs longer than* `1 hour`. OK — Windows asks for the user's password once.
+6. Right-click the task → **Run** and check the Reminders list: sent reminders turn green with a timestamp, failures carry the reason in red.
+
+## 7. Defense notes — where each course topic lives
 
 | Topic | Where |
 |---|---|
@@ -110,7 +140,10 @@ Edit the MySQL path in `database/backup.bat`, then double-click it (or schedule 
 | REST-style JSON endpoints: methods, status codes (200/400/401/403/405/422), `php://input`, `json_last_error`, envelope | `api/_bootstrap.php`, `api/*.php` |
 | Fetch API, async/await, `response.ok`, `JSON.stringify`, loading states, toasts | `dist/js/mutuallink.js` |
 | Indexes (FKs, composite, unique), prefix `LIKE 'term%'`, JOINs instead of N+1 | `database/mutuallink.sql`, `api/member_lookup.php`, `overdue_loans()` |
-| Least privilege DB account (`GRANT SELECT, INSERT, UPDATE, DELETE`) | end of `database/mutuallink.sql` |
+| Least privilege DB account (`GRANT SELECT, INSERT, UPDATE, DELETE`) | end of `database/mutuallink.sql`; credentials out of version control: `config/secrets.php` (gitignored) required by `config/db.php` |
+| Brute-force defence (DB-backed lockout: 5 failures per identifier+IP → 15 min, audited; survives clearing cookies) | `config/rbac.php` (`login_lock_seconds`, `login_register_failure`), `index.php`, table `login_attempts` |
+| Email over SMTP (PHPMailer vendored in `plugins/phpmailer`, no composer; app passwords; scheduled sending) | `config/mail.php`, `cron_send_reminders.php`, Reminders → Email settings |
+| Data integrity in the schema: one running loan per product (A12) as a generated-column unique index; interest period uniqueness; reconciliation views | `database/patch_integrity.sql`, `views/reconcile.php`, `views/eod_close.php` |
 | Audit trail | `audit_log()` in `config/helpers.php`; viewer `views/audit.php` |
 | Backup (mysqldump) | `database/backup.bat` |
 

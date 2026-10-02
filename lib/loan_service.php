@@ -9,6 +9,23 @@ declare(strict_types=1);
  * Business-rule violations throw DomainException (message is safe to show).
  */
 
+/**
+ * The one-loan-per-product rule (clarification A12) is also enforced in the
+ * DATABASE by the uq_loans_one_active unique index on loans (member_id,
+ * product_id, active_loan_flag). A duplicate key error on that index is a
+ * business rule, not a technical fault — re-throw it as a DomainException
+ * so the views show the friendly text instead of a generic failure.
+ */
+function active_loan_violation(Throwable $e): Throwable
+{
+    if ($e instanceof PDOException
+        && ($e->errorInfo[1] ?? null) == 1062
+        && str_contains((string) ($e->errorInfo[2] ?? ''), 'uq_loans_one_active')) {
+        return new DomainException('This member already has a running loan of this product. FFMPC allows only one loan per product (clarification A12).');
+    }
+    return $e;
+}
+
 /** Loan row with the product rates needed for payment computations. */
 function loan_for_payment(int $loanId, bool $lock = false): ?array
 {
@@ -133,6 +150,23 @@ function release_loan(int $loanId, string $releaseDate, ?int $prevLoanId, string
         if ($loan['member_status'] !== 'active') {
             throw new DomainException('The member is not an active member.');
         }
+        // A12, checked here for a friendly message — and enforced by the
+        // uq_loans_one_active unique index if two releases race. The loan being
+        // offset on renewal is excluded: the offset marks it 'paid' below,
+        // before this loan becomes the running one.
+        $stmt = $pdo->prepare(
+            "SELECT COUNT(*) FROM loans
+              WHERE member_id = :m AND product_id = :p AND status = 'released' AND loan_id <> :id" .
+              ($prevLoanId ? ' AND loan_id <> :prev' : '')
+        );
+        $params = [':m' => $loan['member_id'], ':p' => $loan['product_id'], ':id' => $loanId];
+        if ($prevLoanId) {
+            $params[':prev'] = $prevLoanId;
+        }
+        $stmt->execute($params);
+        if ((int) $stmt->fetchColumn() > 0) {
+            throw new DomainException('This member already has a running loan of this product. FFMPC allows only one loan per product (clarification A12).');
+        }
         if ($releaseDate < $loan['date_approved'] || $releaseDate > date('Y-m-d')) {
             throw new DomainException('Release date must be between the approval date and today.');
         }
@@ -248,7 +282,7 @@ function release_loan(int $loanId, string $releaseDate, ?int $prevLoanId, string
         if ($pdo->inTransaction()) {
             $pdo->rollBack();
         }
-        throw $e;
+        throw active_loan_violation($e);
     }
 }
 
@@ -401,6 +435,8 @@ function void_payment(int $paymentId, string $reason): void
         if ($pdo->inTransaction()) {
             $pdo->rollBack();
         }
-        throw $e;
+        // Restoring a paid loan to 'released' can also collide with A12
+        // (the member may already run a newer loan of the same product).
+        throw active_loan_violation($e);
     }
 }

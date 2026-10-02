@@ -70,7 +70,13 @@ $date = $r['payment_date'] ?? $r['txn_date'] ?? $r['membership_fee_date'];
 ?>
 <div class="print-actions no-print">
   <a href="<?= e($back) ?>" class="btn btn-light"><i class="fas fa-arrow-left mr-1"></i> Back</a>
-  <button type="button" class="btn btn-primary" data-print><i class="fas fa-print mr-1"></i> Print receipt</button>
+  <button type="button" class="btn btn-outline-primary" data-print="thermal"
+          title="Narrow ~80mm format for the thermal / dot-matrix receipt printer" aria-label="Print receipt in thermal 80mm format">
+    <i class="fas fa-print mr-1" aria-hidden="true"></i> Print (thermal 80mm)
+  </button>
+  <button type="button" class="btn btn-primary" data-print title="Full layout, for the report printer" aria-label="Print receipt in report format">
+    <i class="fas fa-print mr-1" aria-hidden="true"></i> Print (report)
+  </button>
 </div>
 <div class="print-doc receipt">
   <div class="print-head">

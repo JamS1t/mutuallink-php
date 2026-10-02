@@ -122,10 +122,15 @@ CREATE TABLE savings_transactions (
   reverses_txn_id  INT UNSIGNED NULL,
   passbook_presented TINYINT(1) NOT NULL DEFAULT 0,  -- withdrawals require the passbook (questionnaire 3.6)
   remarks          VARCHAR(255) NULL,
+  -- Structured interest period (clarification A17): the quarter label
+  -- ("2026-Q3") or the time-deposit term label; unique per account so an
+  -- account can never be posted interest twice for the same period.
+  interest_period  VARCHAR(20) NULL,
   created_at       DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (txn_id),
   UNIQUE KEY uq_savings_txn_or (or_no),
   UNIQUE KEY uq_savings_txn_reverses (reverses_txn_id),
+  UNIQUE KEY uq_savings_txn_period (savings_id, interest_period),
   KEY idx_savings_txn_account (savings_id, txn_id),
   KEY idx_savings_txn_date (txn_date),
   KEY idx_savings_txn_posted_by (posted_by),
@@ -185,6 +190,11 @@ CREATE TABLE loans (
   pd_interest_paid     DECIMAL(12,2) NOT NULL DEFAULT 0.00,
   pd_penalty_paid      DECIMAL(12,2) NOT NULL DEFAULT 0.00,
   status               ENUM('pending','approved','rejected','released','paid','cancelled') NOT NULL DEFAULT 'pending',
+  -- A12 in the DATABASE: at most one RUNNING (released) loan of each product per
+  -- member. The flag is 1 only while the loan is running, NULL otherwise — unique
+  -- keys ignore NULL rows, so finished/cancelled loans never conflict. Renewals are
+  -- safe: the offset marks the previous loan 'paid' before the new one is released.
+  active_loan_flag     TINYINT(1) GENERATED ALWAYS AS (IF(status = 'released', 1, NULL)) STORED,
   remarks              VARCHAR(255) NULL,
   created_by           INT UNSIGNED NOT NULL,
   approved_by          INT UNSIGNED NULL,
@@ -206,7 +216,8 @@ CREATE TABLE loans (
   CONSTRAINT fk_loans_approved_by FOREIGN KEY (approved_by) REFERENCES users (user_id),
   CONSTRAINT fk_loans_released_by FOREIGN KEY (released_by) REFERENCES users (user_id),
   CONSTRAINT chk_loans_principal CHECK (principal > 0),
-  CONSTRAINT chk_loans_outstanding CHECK (outstanding_balance >= 0)
+  CONSTRAINT chk_loans_outstanding CHECK (outstanding_balance >= 0),
+  UNIQUE KEY uq_loans_one_active (member_id, product_id, active_loan_flag)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ------------------------------------------------------------
@@ -313,6 +324,8 @@ CREATE TABLE notifications (
   notification_type  ENUM('upcoming','overdue') NOT NULL,
   message            TEXT NOT NULL,
   date_sent          DATETIME NULL,
+  -- SMTP error of a failed email send (reminder cron); NULL when never attempted or sent
+  send_error         VARCHAR(255) NULL,
   status             ENUM('pending','sent','failed','cancelled') NOT NULL DEFAULT 'pending',
   created_by         INT UNSIGNED NOT NULL,
   created_at         DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -342,6 +355,19 @@ CREATE TABLE audit_log (
   KEY idx_audit_table (table_affected, record_id),
   KEY idx_audit_timestamp (timestamp),
   CONSTRAINT fk_audit_user FOREIGN KEY (user_id) REFERENCES users (user_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ------------------------------------------------------------
+-- login_attempts: DB-backed sign-in throttle. 5 failures per identifier+IP
+-- lock the pair out for 15 minutes (clearing cookies does not reset it).
+-- ------------------------------------------------------------
+CREATE TABLE login_attempts (
+  identifier    VARCHAR(150) NOT NULL,          -- username or email as submitted
+  ip            VARCHAR(45)  NOT NULL,
+  failures      INT UNSIGNED NOT NULL DEFAULT 0,
+  locked_until  DATETIME NULL,
+  last_attempt  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (identifier, ip)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ------------------------------------------------------------
@@ -394,12 +420,20 @@ INSERT INTO settings (setting_key, setting_value, label) VALUES
 ('reminder_lead_days',     '3',        'Send upcoming-payment reminders this many days before due'),
 ('aging_brackets',         '30,60,90,180,365', 'Aging bracket upper limits in days (comma-separated)'),
 ('or_counter',             '0',        'Last official receipt number issued (Manager controls the OR series)'),
-('member_counter',         '0',        'Last member number issued');
+('member_counter',         '0',        'Last member number issued'),
+('smtp_host',              '',         'SMTP server for reminder emails (e.g. smtp.gmail.com)'),
+('smtp_port',              '587',      'SMTP port (587 STARTTLS, or 465 SSL)'),
+('smtp_user',              '',         'SMTP username (the full Gmail address)'),
+('smtp_pass',              '',         'SMTP app password — never the sign-in password'),
+('smtp_from',              '',         'From address for reminder emails (the same Gmail address)');
 
 -- ============================================================
 -- Least-privilege application account (Database Security topic).
--- The app never connects as root. Change the password here AND in config/db.php.
+-- The app never connects as root.
+-- SECURITY: the OLD password ('Ml!nk_App_2026') is in git history and must be
+-- considered compromised — this one is a PLACEHOLDER. Change it here AND in
+-- config/secrets.php at every install (README §1, step 4).
 -- ============================================================
-CREATE USER IF NOT EXISTS 'mutuallink_app'@'localhost' IDENTIFIED BY 'Ml!nk_App_2026';
+CREATE USER IF NOT EXISTS 'mutuallink_app'@'localhost' IDENTIFIED BY 'ChangeThis_App_Pass_2026';
 GRANT SELECT, INSERT, UPDATE, DELETE ON mutuallink.* TO 'mutuallink_app'@'localhost';
 FLUSH PRIVILEGES;

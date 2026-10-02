@@ -65,8 +65,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $data['spouse_name'] = null;
     }
 
+    // Duplicate guard at registration: the same last name + first name + birthdate
+    // is already on file. Blocks once with a warning the encoder can confirm.
+    $duplicate = null;
+    if (!$errors && !$isEdit && input('confirm_duplicate') !== '1') {
+        $dup = db()->prepare(
+            'SELECT member_id, member_no, status FROM members
+              WHERE last_name = :ln AND first_name = :fn AND birthdate = :bd LIMIT 1'
+        );
+        $dup->execute([':ln' => $data['last_name'], ':fn' => $data['first_name'], ':bd' => $data['birthdate']]);
+        $duplicate = $dup->fetch() ?: null;
+    }
+
     if ($errors) {
         flash_errors($errors);
+    } elseif ($duplicate) {
+        flash('warning', 'Possible duplicate: ' . ($duplicate['member_no'] ?? '') . ' with the same name and birthdate is already registered ('
+            . ($duplicate['status'] ?? '') . '). Confirm below to register anyway.');
     } else {
         $pdo = db();
         try {
@@ -121,6 +136,18 @@ $errors = take_field_errors();
 <form method="post" action="" class="ml-form" novalidate data-dirty-guard>
   <?= csrf_field() ?>
   <?= error_summary($errors) ?>
+  <?php if ($duplicate): ?>
+    <div class="alert alert-warning" role="alert">
+      <strong><i class="fas fa-exclamation-triangle mr-1" aria-hidden="true"></i>Possible duplicate member.</strong>
+      <a href="dashboard.php?page=member_view&id=<?= (int) $duplicate['member_id'] ?>"><?= e($duplicate['member_no']) ?></a>
+      already has the same last name, first name, and birthdate (status: <?= e(label($duplicate['status'])) ?>).
+      Check the record first — if this really is a different person, tick the confirmation below and register again.
+      <div class="custom-control custom-checkbox mt-2">
+        <input type="checkbox" class="custom-control-input" id="confirm_duplicate" name="confirm_duplicate" value="1">
+        <label class="custom-control-label" for="confirm_duplicate">This is a different person — register anyway</label>
+      </div>
+    </div>
+  <?php endif; ?>
   <div class="row">
     <div class="col-lg-8">
       <div class="card card-primary card-outline">

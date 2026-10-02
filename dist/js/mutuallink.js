@@ -400,8 +400,15 @@
     return dt;
   });
 
-  /* ---------- Print buttons ---------- */
-  $(document).on('click', '[data-print]', function () { window.print(); });
+  /* ---------- Print buttons; data-print="thermal" switches the receipt to
+     the ~80mm thermal layout for that print run (restored after printing) ---------- */
+  $(document).on('click', '[data-print]', function () {
+    var mode = String($(this).data('print') || '');
+    if (mode) document.body.setAttribute('data-print-mode', mode);
+    else document.body.removeAttribute('data-print-mode');
+    window.print();
+  });
+  $(window).on('afterprint', function () { document.body.removeAttribute('data-print-mode'); });
 
   /* ---------- Bring a target field into view (sticky mobile summary bars) ---------- */
   $(document).on('click', '[data-focus]', function () {
