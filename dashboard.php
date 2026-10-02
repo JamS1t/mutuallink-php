@@ -36,8 +36,8 @@ const ROUTES = [
     'demand_letter'  => ['delinquency', 'view', 'delinquency'],
     'notifications'  => ['notifications', 'view', 'notifications'],
     'reports'        => ['reports', 'view', 'reports'],
-    'eod_close'      => ['eod_close', 'view', 'reports'],
-    'reconcile'      => ['reconcile', 'view', 'reports'],
+    'eod_close'      => ['eod_close', 'view', 'eod_close'],
+    'reconcile'      => ['reconcile', 'view', 'reconcile'],
     'audit'          => ['audit', 'view', 'audit'],
     'settings'       => ['settings', 'view', 'settings'],
 ];
