@@ -36,6 +36,19 @@ $due = $pdo->query(
 if (!mail_configured()) {
     echo 'SMTP is not configured (' . count($due) . ' reminder(s) remain pending). '
         . "Fill in Reminders → Email settings as the Manager.\n";
+    if ($due) {
+        // Auditable alarm, but debounced: the run repeats every 10 minutes, so
+        // write the "stuck" entry at most once every 12 hours while reminders wait.
+        $debounce = $pdo->query(
+            "SELECT COUNT(*) FROM audit_log
+              WHERE action = 'send' AND table_affected = 'notifications'
+                AND details LIKE 'Reminder cron: SMTP not configured%'
+                AND timestamp >= DATE_SUB(NOW(), INTERVAL 12 HOUR)"
+        )->fetchColumn();
+        if (!$debounce) {
+            audit_log('send', 'notifications', null, 'Reminder cron: SMTP not configured, ' . count($due) . ' reminder(s) pending');
+        }
+    }
     exit(0);
 }
 
@@ -64,6 +77,10 @@ foreach ($due as $n) {
     }
 }
 
-audit_log('send', 'notifications', null, "Reminder emails: $sent sent, $failed failed out of " . count($due) . ' due');
-echo date('Y-m-d H:i:s') . " reminder emails: $sent sent, $failed failed (of " . count($due) . " due).\n";
+if ($due) {
+    audit_log('send', 'notifications', null, "Reminder emails: $sent sent, $failed failed out of " . count($due) . ' due');
+    echo date('Y-m-d H:i:s') . " reminder emails: $sent sent, $failed failed (of " . count($due) . " due).\n";
+} else {
+    echo date('Y-m-d H:i:s') . " no reminders due.\n";
+}
 exit($failed > 0 ? 1 : 0);

@@ -166,7 +166,9 @@ $headerActions = implode(' ', $buttons);
         <p class="small text-muted mb-3">
           <?= in_array($acct['account_type'], WITHDRAWABLE, true)
               ? 'Deposits and withdrawals allowed.'
-              : 'Deposits only. Withdrawals are not allowed for this account type.' ?>
+              : ($acct['account_type'] === 'share_capital'
+                  ? 'Deposits. A withdrawal is allowed only with a BOD resolution (resigning member).'
+                  : 'Deposits only. Withdrawals are not allowed for this account type.') ?>
         </p>
         <a href="dashboard.php?page=member_view&id=<?= (int) $acct['member_id'] ?>" class="btn btn-sm btn-light btn-block no-print"><i class="fas fa-user mr-1"></i> Member record</a>
         <?php if (can('savings', 'delete') && $acct['status'] === 'active' && (float) $acct['balance'] === 0.0): ?>

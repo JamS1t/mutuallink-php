@@ -23,7 +23,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $period = req($errors, 'period', 'Quarter label (e.g. 2026-Q3)', 20);
             if (!$errors) {
                 $pdo->beginTransaction();
-                $stmt = $pdo->query("SELECT savings_id, balance FROM savings_accounts WHERE account_type = 'regular_savings' AND status = 'active' AND balance > 0 ORDER BY savings_id");
+                // FOR UPDATE locks the account rows so a concurrent deposit cannot
+                // change the balance between this read and the interest posting.
+                $stmt = $pdo->query("SELECT savings_id, balance FROM savings_accounts WHERE account_type = 'regular_savings' AND status = 'active' AND balance > 0 ORDER BY savings_id FOR UPDATE");
                 $accounts = $stmt->fetchAll();
                 $hasPeriod = $pdo->prepare("SELECT COUNT(*) FROM savings_transactions WHERE savings_id = :s AND txn_type = 'interest' AND interest_period = :p");
                 $posted = $skipped = 0;
@@ -128,19 +130,20 @@ $pct = (float) setting('savings_interest_pct');
       <div class="card-body">
         <p class="small text-muted">Posts <strong><?= e(setting('savings_interest_pct')) ?>%</strong> of each account's current balance to every active regular savings account (<?= count($regular) ?> account(s) with balance). Accounts that already received interest for the quarter are skipped. Interest entries carry no official receipt.</p>
         <?php if (can('savings_interest', 'post')): ?>
-          <form method="post" action="" class="ml-form">
+          <?php // data-confirm belongs on the form: mutuallink.js opens the dialog on form[data-confirm] submit ?>
+          <form method="post" action="" class="ml-form" data-confirm="Post <?= e(setting('savings_interest_pct')) ?>% quarterly interest to all regular savings accounts now?" data-confirm-button="Post interest">
             <?= csrf_field() ?>
             <input type="hidden" name="action" value="post_regular">
             <div class="form-group">
               <label for="period">Quarter label <span class="text-danger">*</span></label>
               <input type="text" class="form-control" id="period" name="period" required maxlength="20" placeholder="e.g., 2026-Q3">
             </div>
-            <button type="submit" class="btn btn-primary" data-confirm="Post <?= e(setting('savings_interest_pct')) ?>% quarterly interest to all regular savings accounts now?" data-confirm-button="Post interest">
+            <button type="submit" class="btn btn-primary">
               <i class="fas fa-coins mr-1"></i> Post quarterly interest
             </button>
           </form>
         <?php else: ?>
-          <p class="text-muted small">Only the Bookkeeper or Manager can post interest.</p>
+          <p class="text-muted small">Only the Bookkeeper can post interest (the Manager does not post money).</p>
         <?php endif; ?>
       </div>
     </div>

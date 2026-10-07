@@ -96,12 +96,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
               <small class="form-text text-muted">Share capital is returned to a resigning member only with the approval of the Board of Directors (clarification A18): enter the BOD resolution below.</small>
             <?php elseif (!$allowWithdrawal): ?><small class="form-text text-muted">Withdrawals are not allowed for <?= e(ACCOUNT_TYPES[$acct['account_type']]) ?>.</small><?php endif; ?>
           </div>
-          <div class="form-group <?= $isShare ? '' : 'd-none' ?>" id="bod-resolution-group">
+          <?php if ($isShare): // only share capital has this field; mutuallink.js shows it while Withdraw is selected ?>
+          <div class="form-group <?= old('txn_type') === 'withdrawal' ? '' : 'd-none' ?>" id="bod-resolution-group">
             <label for="bod_resolution">BOD resolution (number and date) <span class="text-danger">*</span></label>
             <input type="text" class="form-control<?= invalid_class($errors, 'bod_resolution') ?>" id="bod_resolution" name="bod_resolution" maxlength="100"
                    placeholder="e.g., Resolution No. 2026-15, dated Sep 12, 2026" value="<?= e(old('bod_resolution')) ?>"<?= invalid_attrs($errors, 'bod_resolution') ?>>
             <?= field_feedback($errors, 'bod_resolution') ?>
           </div>
+          <?php endif; ?>
           <div class="form-row">
             <div class="form-group col-md-6">
               <label for="amount">Amount (₱) <span class="text-danger">*</span></label>

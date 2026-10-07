@@ -42,7 +42,15 @@ $pdo = db();
                 CONCAT(m.last_name, ', ', m.first_name), IF(t.txn_type = 'deposit', t.amount, 0), IF(t.txn_type = 'withdrawal', t.amount, 0), u.full_name
            FROM savings_transactions t JOIN savings_accounts a ON a.savings_id = t.savings_id JOIN members m ON m.member_id = a.member_id JOIN users u ON u.user_id = t.posted_by
           WHERE t.txn_date = :d2 AND t.or_no IS NOT NULL
-            AND NOT EXISTS (SELECT 1 FROM savings_transactions r WHERE r.reverses_txn_id = t.txn_id)
+         UNION ALL
+         SELECT t0.or_no, r.created_at, 'Savings reversal', REPLACE(a.account_type, '_', ' '), 'cash',
+                CONCAT(m.last_name, ', ', m.first_name), IF(t0.txn_type = 'withdrawal', r.amount, 0), IF(t0.txn_type = 'deposit', r.amount, 0), u.full_name
+           FROM savings_transactions r
+           JOIN savings_transactions t0 ON t0.txn_id = r.reverses_txn_id
+           JOIN savings_accounts a ON a.savings_id = r.savings_id
+           JOIN members m ON m.member_id = a.member_id
+           JOIN users u ON u.user_id = r.posted_by
+          WHERE r.txn_date = :d4 AND t0.or_no IS NOT NULL
          UNION ALL
          SELECT m.membership_fee_or, CAST(m.membership_fee_date AS DATETIME), 'Membership fee', m.member_no, 'cash',
                 CONCAT(m.last_name, ', ', m.first_name), m.membership_fee, 0, u.full_name
@@ -50,7 +58,7 @@ $pdo = db();
           WHERE m.membership_fee_date = :d3 AND m.membership_fee_or IS NOT NULL
           ORDER BY or_no"
     );
-    $stmt->execute([':d1' => $date, ':d2' => $date, ':d3' => $date]);
+    $stmt->execute([':d1' => $date, ':d2' => $date, ':d3' => $date, ':d4' => $date]);
     $rows = $stmt->fetchAll();
     $in = array_sum(array_column($rows, 'cash_in'));
     $out = array_sum(array_column($rows, 'cash_out'));
@@ -88,7 +96,7 @@ $pdo = db();
         </tbody>
         <tfoot><tr class="font-weight-bold"><td colspan="6">Totals</td><td class="num"><?= e(money($in)) ?></td><td class="num"><?= e(money($out)) ?></td><td></td></tr></tfoot>
       </table>
-      <p class="small text-muted mb-0">Reversed savings entries are excluded. Loan renewals (offsets) are not cash and are excluded.</p>
+      <p class="small text-muted mb-0">A reversal appears as its own <strong>Savings reversal</strong> line on the day the cash returned. Loan renewals (offsets) are not cash and are excluded.</p>
     </div>
   </div>
 

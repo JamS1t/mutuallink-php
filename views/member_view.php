@@ -29,6 +29,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = input('action');
     if ($action === 'approve_membership') {
         require_permission('members', 'approve');
+        // No registrant ≠ approver rule here: FFMPC has fewer than five staff, so the
+        // Manager who registered an applicant may also approve the membership.
         if (!$requirementsMet) {
             flash('error', 'All membership requirements must be complete before approval.');
         } else {

@@ -7,7 +7,7 @@ declare(strict_types=1);
 // the Daily collection report prints, but arranged for counting the cash box.
 $date = get_date('date', date('Y-m-d'));
 $title = 'End-of-day close';
-$subtitle = 'All posted official receipts of ' . fmt_date($date, 'F j, Y') . ' grouped by type, with the cash-box total. Reversed entries and loan renewals (offsets) are excluded.';
+$subtitle = 'All posted official receipts of ' . fmt_date($date, 'F j, Y') . ' grouped by type, with the cash-box total. A reversed savings entry stays listed (the cash really left) and its reversal is booked the day the cash came back. Loan renewals (offsets) are excluded.';
 $back = 'dashboard.php?page=reports';
 
 $pdo = db();
@@ -27,17 +27,25 @@ UNION ALL
        FROM savings_transactions t
        JOIN savings_accounts a ON a.savings_id = t.savings_id
        JOIN members m ON m.member_id = a.member_id
-      WHERE t.txn_date = :d2 AND t.or_no IS NOT NULL
-        AND NOT EXISTS (SELECT 1 FROM savings_transactions r WHERE r.reverses_txn_id = t.txn_id)
+       WHERE t.txn_date = :d2 AND t.or_no IS NOT NULL
+UNION ALL
+      SELECT t0.or_no, NULL, r.txn_id, NULL,
+             'Savings reversal', CONCAT(m.last_name, ', ', m.first_name), m.member_no,
+             IF(t0.txn_type = 'withdrawal', r.amount, 0.00), IF(t0.txn_type = 'deposit', r.amount, 0.00), r.created_at
+        FROM savings_transactions r
+        JOIN savings_transactions t0 ON t0.txn_id = r.reverses_txn_id
+        JOIN savings_accounts a ON a.savings_id = r.savings_id
+        JOIN members m ON m.member_id = a.member_id
+       WHERE r.txn_date = :d4 AND t0.or_no IS NOT NULL
 UNION ALL
       SELECT m.membership_fee_or, NULL, NULL, m.member_id,
              'Membership fee', CONCAT(m.last_name, ', ', m.first_name), m.member_no,
              m.membership_fee, 0.00, CAST(m.membership_fee_date AS DATETIME)
-       FROM members m
-      WHERE m.membership_fee_date = :d3 AND m.membership_fee_or IS NOT NULL
-      ORDER BY at_time, or_no"
+        FROM members m
+       WHERE m.membership_fee_date = :d3 AND m.membership_fee_or IS NOT NULL
+       ORDER BY at_time, or_no"
 );
-$stmt->execute([':d1' => $date, ':d2' => $date, ':d3' => $date]);
+$stmt->execute([':d1' => $date, ':d2' => $date, ':d3' => $date, ':d4' => $date]);
 $rows = $stmt->fetchAll();
 
 // Summary per type: counts and totals + the grand total for the cash box
@@ -64,7 +72,7 @@ $receipt_link = function (array $r): string {
     return 'dashboard.php?page=receipt&fee=' . (int) $r['member_fee_id'];
 };
 $kindIcon = ['Loan payment' => 'fas fa-hand-holding-usd', 'Savings deposit' => 'fas fa-arrow-down',
-             'Savings withdrawal' => 'fas fa-arrow-up', 'Membership fee' => 'fas fa-id-card'];
+             'Savings withdrawal' => 'fas fa-arrow-up', 'Savings reversal' => 'fas fa-undo', 'Membership fee' => 'fas fa-id-card'];
 ?>
 <div class="card">
   <div class="card-header d-flex flex-wrap align-items-center">
@@ -109,6 +117,6 @@ $kindIcon = ['Loan payment' => 'fas fa-hand-holding-usd', 'Savings deposit' => '
         <td class="num text-primary"><?= e(money($grand)) ?></td>
       </tr></tfoot>
     </table>
-    <p class="small text-muted mb-0">Excluded, like the daily collection report: reversed savings entries, loan renewals settled by offset (not cash), and non-cash system postings such as interest accruals.</p>
+    <p class="small text-muted mb-0">Excluded, like the daily collection report: loan renewals settled by offset (not cash) and non-cash system postings such as interest accruals. A reversal shows as its own <strong>Savings reversal</strong> line on the day the cash returned, and links to the receipt it corrected.</p>
   </div>
 </div>

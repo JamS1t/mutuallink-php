@@ -35,7 +35,7 @@ const RBAC = [
                         'update' => ['manager', 'bookkeeper'],
                         'delete' => ['manager']],
     'savings_txn'   => ['view' => ALL_ROLES, 'create' => ['cashier'], 'delete' => ['bookkeeper']],
-    'savings_interest' => ['view' => ['manager', 'bookkeeper'], 'post' => ['manager', 'bookkeeper']],  // posts the quarterly/term interest (A17)
+    'savings_interest' => ['view' => ['manager', 'bookkeeper'], 'post' => ['bookkeeper']],  // only the Bookkeeper posts the quarterly/term interest (A17; the Manager does not post money)
     'products'      => ['view' => ALL_ROLES, 'create' => ['manager'], 'update' => ['manager'], 'delete' => ['manager']],
     'settings'      => ['view' => ALL_ROLES, 'update' => ['manager']],
     'loans'         => ['view' => ALL_ROLES,

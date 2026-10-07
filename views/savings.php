@@ -10,10 +10,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && input('action') === 'open_account')
     $errors = [];
     $memberId = post_id('member_id');
     $type = enum_in($errors, 'account_type', 'account type', array_keys(ACCOUNT_TYPES));
-    $stmt = db()->prepare("SELECT member_no FROM members WHERE member_id = :id AND status IN ('active','applicant')");
+    $stmt = db()->prepare("SELECT member_no, last_name, first_name FROM members WHERE member_id = :id AND status IN ('active','applicant')");
     $stmt->execute([':id' => $memberId]);
-    $memberNo = $stmt->fetchColumn();
-    if ($memberNo === false) {
+    $member = $stmt->fetch();
+    if (!$member) {
         $errors[] = 'Select an active member.';
     }
     if (!$errors) {
@@ -21,11 +21,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && input('action') === 'open_account')
             db()->prepare('INSERT INTO savings_accounts (member_id, account_type, balance, date_opened) VALUES (:m, :t, 0, CURDATE())')
                 ->execute([':m' => $memberId, ':t' => $type]);
             $sid = (int) db()->lastInsertId();
-            audit_log('create', 'savings_accounts', $sid, ACCOUNT_TYPES[$type] . " for $memberNo");
-            if ($selected) {
-                remember_member_served($memberId, $selected['last_name'] . ', ' . $selected['first_name'], $memberNo);
-            }
-            flash('success', ACCOUNT_TYPES[$type] . " account opened for $memberNo.");
+            audit_log('create', 'savings_accounts', $sid, ACCOUNT_TYPES[$type] . " for {$member['member_no']}");
+            remember_member_served($memberId, $member['last_name'] . ', ' . $member['first_name'], $member['member_no']);
+            flash('success', ACCOUNT_TYPES[$type] . " account opened for {$member['member_no']}.");
             redirect('dashboard.php?page=passbook&id=' . $sid);
         } catch (PDOException $e) {
             if ($e->getCode() === '23000') { // duplicate (member, type)

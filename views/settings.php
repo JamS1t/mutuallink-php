@@ -94,7 +94,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     } else {
                         $upd->execute([':v' => $v, ':k' => $k]);
                     }
-                    $changes[] = "$k: {$old[$k]} → $v";
+                    $changes[] = "$k: " . ($old[$k] ?? '(not set)') . " → $v";
                 }
             }
             if ($changes) {
