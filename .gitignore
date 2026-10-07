@@ -3,3 +3,6 @@ config/secrets.php
 
 # Local database backups produced by database/backup.bat
 database/backups/
+
+# Python bytecode from docs/build_guide.py
+__pycache__/

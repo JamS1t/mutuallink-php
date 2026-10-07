@@ -1,0 +1,2402 @@
+{
+ "01-login": {
+  "w": 1440,
+  "h": 900,
+  "marks": [
+   {
+    "x": 556,
+    "y": 450,
+    "w": 329,
+    "h": 38,
+    "label": "Username or email",
+    "text": "Type your username (for example, cashier) or your email address."
+   },
+   {
+    "x": 556,
+    "y": 534,
+    "w": 329,
+    "h": 38,
+    "label": "Password",
+    "text": "Type your password. The eye button shows what you typed."
+   },
+   {
+    "x": 556,
+    "y": 596,
+    "w": 329,
+    "h": 38,
+    "label": "Sign in",
+    "text": "Click Sign in. Five wrong attempts lock sign-in for 15 minutes."
+   },
+   {
+    "x": 675,
+    "y": 696,
+    "w": 91,
+    "h": 17,
+    "label": "System guide",
+    "text": "Opens this guide from the sign-in page."
+   }
+  ]
+ },
+ "dash-cashier": {
+  "w": 1440,
+  "h": 900,
+  "marks": [
+   {
+    "x": 8,
+    "y": 156,
+    "w": 234,
+    "h": 561,
+    "label": "Your menu",
+    "text": "Only the modules a Cashier may use."
+   },
+   {
+    "x": 258,
+    "y": 147,
+    "w": 1174,
+    "h": 381,
+    "label": "Today at a glance",
+    "text": "Today's collections and deposits come first for the Cashier."
+   },
+   {
+    "x": 266,
+    "y": 528,
+    "w": 376,
+    "h": 241,
+    "label": "Quick actions",
+    "text": "Post a loan payment, post a deposit or withdrawal, register a member, open reports."
+   },
+   {
+    "x": 1102,
+    "y": 12,
+    "w": 171,
+    "h": 32,
+    "label": "Find member",
+    "text": "Search any member from any page (Ctrl+K or /)."
+   }
+  ]
+ },
+ "members-list": {
+  "w": 1440,
+  "h": 900,
+  "marks": [
+   {
+    "x": 1250,
+    "y": 72,
+    "w": 175,
+    "h": 38,
+    "label": "Register member",
+    "text": "Opens the registration form (Cashier and Manager)."
+   },
+   {
+    "x": 286,
+    "y": 160,
+    "w": 234,
+    "h": 31,
+    "label": "Status filter",
+    "text": "Active, Applicants, Inactive, or All."
+   },
+   {
+    "x": 286,
+    "y": 224,
+    "w": 185,
+    "h": 31,
+    "label": "Export or print",
+    "text": "Copy, CSV, Excel, or Print the list."
+   },
+   {
+    "x": 852,
+    "y": 224,
+    "w": 551,
+    "h": 39,
+    "label": "Search",
+    "text": "Filters the table as you type."
+   },
+   {
+    "x": 1308,
+    "y": 269,
+    "w": 95,
+    "h": 157,
+    "label": "Actions",
+    "text": "Open the record (eye) or edit the profile (pen)."
+   }
+  ]
+ },
+ "03-register-member": {
+  "w": 1440,
+  "h": 939,
+  "marks": [
+   {
+    "x": 266,
+    "y": 147,
+    "w": 768,
+    "h": 722,
+    "label": "Personal details",
+    "text": "Name, birthdate, civil status, address, mobile number, and email. Fields with * are required."
+   },
+   {
+    "x": 282,
+    "y": 644,
+    "w": 368,
+    "h": 70,
+    "label": "TIN (required)",
+    "text": "FFMPC requires the TIN for membership."
+   },
+   {
+    "x": 1069,
+    "y": 212,
+    "w": 334,
+    "h": 70,
+    "label": "PMES date",
+    "text": "Date the applicant attended the pre-membership seminar."
+   },
+   {
+    "x": 1069,
+    "y": 426,
+    "w": 334,
+    "h": 24,
+    "label": "Signature card",
+    "text": "Tick when the signature specimen card is received."
+   },
+   {
+    "x": 1069,
+    "y": 466,
+    "w": 334,
+    "h": 112,
+    "label": "Member type",
+    "text": "Members from outside the school must give collateral for loans."
+   },
+   {
+    "x": 1069,
+    "y": 611,
+    "w": 334,
+    "h": 38,
+    "label": "Register member",
+    "text": "Saves the applicant; the member number and the Share Capital and Regular Savings accounts are created."
+   }
+  ]
+ },
+ "04-applicant-record": {
+  "w": 1440,
+  "h": 900,
+  "marks": [
+   {
+    "x": 286,
+    "y": 214,
+    "w": 645,
+    "h": 300,
+    "label": "Requirements checklist",
+    "text": "Green is done, red is still missing. Here the fee and the share capital are missing."
+   },
+   {
+    "x": 947,
+    "y": 299,
+    "w": 457,
+    "h": 38,
+    "label": "Receive membership fee",
+    "text": "The fee is fixed (₱250, set in Settings). One click records it and opens the receipt."
+   },
+   {
+    "x": 286,
+    "y": 572,
+    "w": 76,
+    "h": 47,
+    "label": "Status: Applicant",
+    "text": "Stays an Applicant until the Manager approves."
+   },
+   {
+    "x": 266,
+    "y": 659,
+    "w": 1157,
+    "h": 44,
+    "label": "Record tabs",
+    "text": "Eligibility, profile, accounts, loans, and payment history."
+   }
+  ]
+ },
+ "05-membership-fee-receipt": {
+  "w": 1440,
+  "h": 900,
+  "marks": [
+   {
+    "x": 717,
+    "y": 271,
+    "w": 180,
+    "h": 38,
+    "label": "OR number",
+    "text": "The next number in the official receipt series."
+   },
+   {
+    "x": 543,
+    "y": 457,
+    "w": 354,
+    "h": 39,
+    "label": "Amount received",
+    "text": "The membership fee paid by the applicant."
+   },
+   {
+    "x": 780,
+    "y": 16,
+    "w": 201,
+    "h": 38,
+    "label": "Print (thermal 80mm)",
+    "text": "Narrow layout for the receipt printer."
+   },
+   {
+    "x": 989,
+    "y": 16,
+    "w": 141,
+    "h": 38,
+    "label": "Print (report)",
+    "text": "Full layout for the office printer."
+   },
+   {
+    "x": 691,
+    "y": 16,
+    "w": 81,
+    "h": 38,
+    "label": "Back",
+    "text": "Returns to the member record."
+   }
+  ]
+ },
+ "member-accounts": {
+  "w": 1440,
+  "h": 914,
+  "marks": [
+   {
+    "x": 442,
+    "y": 659,
+    "w": 125,
+    "h": 44,
+    "label": "Accounts tab",
+    "text": "The member's savings and share capital accounts."
+   },
+   {
+    "x": 286,
+    "y": 723,
+    "w": 177,
+    "h": 31,
+    "label": "Open another account",
+    "text": "Adds a Capital Build-Up or Time Deposit account."
+   },
+   {
+    "x": 1322,
+    "y": 813,
+    "w": 72,
+    "h": 31,
+    "label": "Open passbook",
+    "text": "Opens the passbook, where transactions are posted."
+   }
+  ]
+ },
+ "06-share-capital-deposit": {
+  "w": 1440,
+  "h": 900,
+  "marks": [
+   {
+    "x": 286,
+    "y": 202,
+    "w": 530,
+    "h": 38,
+    "label": "Deposit or withdraw",
+    "text": "Deposit is selected. A share capital withdrawal needs a BOD resolution."
+   },
+   {
+    "x": 282,
+    "y": 298,
+    "w": 540,
+    "h": 96,
+    "label": "Amount and date",
+    "text": "Enter ₱2,000 for the initial share capital; the date defaults to today."
+   },
+   {
+    "x": 286,
+    "y": 536,
+    "w": 203,
+    "h": 38,
+    "label": "Post and issue receipt",
+    "text": "Saves the deposit, updates the balance, and issues an OR."
+   },
+   {
+    "x": 852,
+    "y": 147,
+    "w": 278,
+    "h": 191,
+    "label": "Current balance",
+    "text": "The balance before this transaction, with the rules of the account."
+   }
+  ]
+ },
+ "savings-receipt": {
+  "w": 1440,
+  "h": 900,
+  "marks": [
+   {
+    "x": 717,
+    "y": 271,
+    "w": 180,
+    "h": 38,
+    "label": "OR number",
+    "text": "Every deposit and withdrawal gets its own receipt number."
+   },
+   {
+    "x": 543,
+    "y": 478,
+    "w": 354,
+    "h": 39,
+    "label": "Amount",
+    "text": "The amount deposited or withdrawn."
+   },
+   {
+    "x": 543,
+    "y": 517,
+    "w": 354,
+    "h": 36,
+    "label": "Balance after",
+    "text": "The running balance written to the passbook."
+   },
+   {
+    "x": 310,
+    "y": 16,
+    "w": 820,
+    "h": 38,
+    "label": "Print",
+    "text": "Thermal 80mm or full report layout."
+   }
+  ]
+ },
+ "savings-accounts": {
+  "w": 1440,
+  "h": 900,
+  "marks": [
+   {
+    "x": 258,
+    "y": 216,
+    "w": 1174,
+    "h": 114,
+    "label": "Totals per account type",
+    "text": "Click a tile to list only that type."
+   },
+   {
+    "x": 826,
+    "y": 486,
+    "w": 186,
+    "h": 111,
+    "label": "Passbook / Post",
+    "text": "Open the passbook, or post a deposit or withdrawal directly."
+   },
+   {
+    "x": 1048,
+    "y": 330,
+    "w": 376,
+    "h": 307,
+    "label": "Open an account",
+    "text": "Choose the account type and click Open account. One account of each type per member."
+   },
+   {
+    "x": 286,
+    "y": 395,
+    "w": 185,
+    "h": 31,
+    "label": "Export or print",
+    "text": "Copy, CSV, Excel, or Print."
+   }
+  ]
+ },
+ "07-withdrawal-maintaining-balance": {
+  "w": 1440,
+  "h": 900,
+  "marks": [
+   {
+    "x": 286,
+    "y": 202,
+    "w": 530,
+    "h": 38,
+    "label": "Withdraw",
+    "text": "Choose Withdraw and enter the amount (₱700 here)."
+   },
+   {
+    "x": 286,
+    "y": 438,
+    "w": 530,
+    "h": 24,
+    "label": "Passbook presented",
+    "text": "Required for every withdrawal."
+   },
+   {
+    "x": 890,
+    "y": 247,
+    "w": 220,
+    "h": 19,
+    "label": "Withdrawable now",
+    "text": "The most that can be withdrawn while keeping the maintaining balance."
+   },
+   {
+    "x": 1128,
+    "y": 12,
+    "w": 300,
+    "h": 95,
+    "label": "Refused",
+    "text": "₱700 would go below the ₱500 maintaining balance, so the system refuses it and says how much is allowed."
+   }
+  ]
+ },
+ "08-passbook": {
+  "w": 1440,
+  "h": 900,
+  "marks": [
+   {
+    "x": 398,
+    "y": 148,
+    "w": 76,
+    "h": 249,
+    "label": "Receipt number",
+    "text": "Each line carries its own OR number; interest lines have none."
+   },
+   {
+    "x": 879,
+    "y": 148,
+    "w": 105,
+    "h": 249,
+    "label": "Running balance",
+    "text": "The balance after each transaction."
+   },
+   {
+    "x": 1262,
+    "y": 72,
+    "w": 163,
+    "h": 38,
+    "label": "Post transaction",
+    "text": "Opens the deposit or withdrawal form."
+   },
+   {
+    "x": 1174,
+    "y": 72,
+    "w": 83,
+    "h": 38,
+    "label": "Print",
+    "text": "Prints the passbook ledger."
+   }
+  ]
+ },
+ "09-applicants-list": {
+  "w": 1440,
+  "h": 900,
+  "marks": [
+   {
+    "x": 341,
+    "y": 160,
+    "w": 82,
+    "h": 31,
+    "label": "Applicants filter",
+    "text": "Shows everyone waiting for approval."
+   },
+   {
+    "x": 1174,
+    "y": 269,
+    "w": 92,
+    "h": 101,
+    "label": "Status: Applicant",
+    "text": "Changes to Active after approval."
+   },
+   {
+    "x": 1267,
+    "y": 314,
+    "w": 137,
+    "h": 56,
+    "label": "Actions",
+    "text": "Eye: open the record, where the Manager approves. Pen: edit the profile. Red button: deactivate (members are never deleted; refused while a loan is pending or running)."
+   }
+  ]
+ },
+ "10-approve-membership": {
+  "w": 1440,
+  "h": 900,
+  "marks": [
+   {
+    "x": 286,
+    "y": 214,
+    "w": 645,
+    "h": 300,
+    "label": "All requirements met",
+    "text": "PMES, signature card, TIN, membership fee, and ₱2,000 share capital are all green."
+   },
+   {
+    "x": 947,
+    "y": 268,
+    "w": 457,
+    "h": 38,
+    "label": "Approve membership",
+    "text": "Enabled only when every requirement is met."
+   }
+  ]
+ },
+ "11-member-record-active": {
+  "w": 1440,
+  "h": 900,
+  "marks": [
+   {
+    "x": 286,
+    "y": 168,
+    "w": 55,
+    "h": 47,
+    "label": "Status: Active",
+    "text": "The member can now apply for loans."
+   },
+   {
+    "x": 266,
+    "y": 255,
+    "w": 1157,
+    "h": 44,
+    "label": "Record tabs",
+    "text": "Eligibility, profile, accounts, loans, and payment history."
+   },
+   {
+    "x": 279,
+    "y": 319,
+    "w": 660,
+    "h": 387,
+    "label": "Eligibility summary",
+    "text": "Checked before every loan: membership, payment record, co-maker, collateral, existing loans, share capital."
+   },
+   {
+    "x": 1297,
+    "y": 72,
+    "w": 127,
+    "h": 38,
+    "label": "Edit profile",
+    "text": "Manager, Cashier, and Loan Officer can correct the profile."
+   }
+  ]
+ },
+ "dash-loanofficer": {
+  "w": 1440,
+  "h": 900,
+  "marks": [
+   {
+    "x": 8,
+    "y": 156,
+    "w": 234,
+    "h": 605,
+    "label": "Your menu",
+    "text": "Only the modules a Loan Officer may use."
+   },
+   {
+    "x": 258,
+    "y": 147,
+    "w": 1174,
+    "h": 381,
+    "label": "Today at a glance",
+    "text": "Applications in process, past-due loans, and dues in 7 days come first."
+   },
+   {
+    "x": 266,
+    "y": 528,
+    "w": 768,
+    "h": 184,
+    "label": "Delinquency summary",
+    "text": "Accounts and amount past due, with the worst accounts listed."
+   },
+   {
+    "x": 1048,
+    "y": 528,
+    "w": 376,
+    "h": 192,
+    "label": "Quick actions",
+    "text": "New loan application, update the delinquency list, open reports."
+   }
+  ]
+ },
+ "loan-find-member": {
+  "w": 1440,
+  "h": 900,
+  "marks": [
+   {
+    "x": 286,
+    "y": 286,
+    "w": 530,
+    "h": 48,
+    "label": "Find the member",
+    "text": "Type a last name, first name, or member number."
+   },
+   {
+    "x": 286,
+    "y": 342,
+    "w": 530,
+    "h": 50,
+    "label": "Pick the member",
+    "text": "Only active members can borrow; applicants must be approved first."
+   }
+  ]
+ },
+ "12-loan-application": {
+  "w": 1440,
+  "h": 1165,
+  "marks": [
+   {
+    "x": 286,
+    "y": 254,
+    "w": 628,
+    "h": 93,
+    "label": "Loan product",
+    "text": "Regular, Salary, or Emergency Loan. The allowed range is shown below the field."
+   },
+   {
+    "x": 282,
+    "y": 363,
+    "w": 638,
+    "h": 86,
+    "label": "Principal and term",
+    "text": "The amount and the number of months."
+   },
+   {
+    "x": 286,
+    "y": 449,
+    "w": 628,
+    "h": 120,
+    "label": "Co-maker",
+    "text": "Required for every loan; must be an active FFMPC member, picked from the list."
+   },
+   {
+    "x": 286,
+    "y": 586,
+    "w": 628,
+    "h": 223,
+    "label": "Collateral",
+    "text": "Required for a Regular Loan and for members outside the school; loanable up to 30% of the appraised value."
+   },
+   {
+    "x": 282,
+    "y": 825,
+    "w": 638,
+    "h": 130,
+    "label": "Net pay and how to pay",
+    "text": "Net pay is for a Salary Loan: the monthly amortization must not exceed it."
+   },
+   {
+    "x": 950,
+    "y": 187,
+    "w": 474,
+    "h": 466,
+    "label": "Eligibility summary",
+    "text": "Shown beside the form while you encode."
+   },
+   {
+    "x": 286,
+    "y": 1057,
+    "w": 181,
+    "h": 38,
+    "label": "Submit application",
+    "text": "Records the application as Pending."
+   }
+  ]
+ },
+ "12b-amortization-preview": {
+  "w": 1440,
+  "h": 1008,
+  "marks": [
+   {
+    "x": 417,
+    "y": 113,
+    "w": 92,
+    "h": 795,
+    "label": "Same principal",
+    "text": "An equal slice of principal every month."
+   },
+   {
+    "x": 508,
+    "y": 113,
+    "w": 92,
+    "h": 795,
+    "label": "Interest",
+    "text": "3% of the remaining balance, so it goes down every month."
+   },
+   {
+    "x": 600,
+    "y": 113,
+    "w": 98,
+    "h": 795,
+    "label": "Total due",
+    "text": "Principal plus interest."
+   },
+   {
+    "x": 698,
+    "y": 113,
+    "w": 122,
+    "h": 795,
+    "label": "Semi-monthly",
+    "text": "Half the monthly amount, for salary deductions on the 15th and 30th."
+   },
+   {
+    "x": 286,
+    "y": 919,
+    "w": 628,
+    "h": 19,
+    "label": "Totals",
+    "text": "Total interest and total payable over the term."
+   }
+  ]
+ },
+ "13-loan-pending": {
+  "w": 1440,
+  "h": 1133,
+  "marks": [
+   {
+    "x": 286,
+    "y": 168,
+    "w": 1117,
+    "h": 24,
+    "label": "Status and progress",
+    "text": "Applied → Approved → Released → Fully paid."
+   },
+   {
+    "x": 266,
+    "y": 292,
+    "w": 1159,
+    "h": 446,
+    "label": "Eligibility summary",
+    "text": "Information for the credit committee; the system does not decide."
+   },
+   {
+    "x": 853,
+    "y": 754,
+    "w": 572,
+    "h": 309,
+    "label": "Details",
+    "text": "Co-maker, collateral, and how the member will pay."
+   },
+   {
+    "x": 1347,
+    "y": 72,
+    "w": 77,
+    "h": 38,
+    "label": "Edit",
+    "text": "A pending application can still be corrected."
+   },
+   {
+    "x": 286,
+    "y": 821,
+    "w": 530,
+    "h": 38,
+    "label": "Cancel application",
+    "text": "For example when the member withdraws it; a reason is asked."
+   }
+  ]
+ },
+ "02-dashboard": {
+  "w": 1440,
+  "h": 1465,
+  "marks": [
+   {
+    "x": 8,
+    "y": 156,
+    "w": 234,
+    "h": 821,
+    "label": "Your menu",
+    "text": "The sidebar lists only the modules your role may use. The Manager sees all of them."
+   },
+   {
+    "x": 258,
+    "y": 147,
+    "w": 1174,
+    "h": 381,
+    "label": "Today at a glance",
+    "text": "Applications in process, loans awaiting release, past-due loans, portfolio, collections, members, share capital, and savings."
+   },
+   {
+    "x": 266,
+    "y": 528,
+    "w": 768,
+    "h": 120,
+    "label": "Approvals & releases queue",
+    "text": "Pending and approved loans waiting for the Manager."
+   },
+   {
+    "x": 1048,
+    "y": 528,
+    "w": 376,
+    "h": 241,
+    "label": "Quick actions",
+    "text": "Shortcuts to the tasks of the signed-in role."
+   },
+   {
+    "x": 1048,
+    "y": 785,
+    "w": 376,
+    "h": 610,
+    "label": "Recent activity",
+    "text": "Latest entries from the audit log."
+   }
+  ]
+ },
+ "14-loan-decision": {
+  "w": 1440,
+  "h": 1107,
+  "marks": [
+   {
+    "x": 266,
+    "y": 292,
+    "w": 1159,
+    "h": 446,
+    "label": "Eligibility summary",
+    "text": "What the credit committee looked at."
+   },
+   {
+    "x": 286,
+    "y": 876,
+    "w": 530,
+    "h": 61,
+    "label": "Committee note",
+    "text": "Optional note from the credit committee meeting."
+   },
+   {
+    "x": 286,
+    "y": 953,
+    "w": 530,
+    "h": 38,
+    "label": "Approve",
+    "text": "Records the Manager's approval. Whoever encoded the application cannot decide it."
+   },
+   {
+    "x": 286,
+    "y": 999,
+    "w": 530,
+    "h": 38,
+    "label": "Reject",
+    "text": "Records a rejection instead; a reason is required."
+   }
+  ]
+ },
+ "15-loan-release": {
+  "w": 1440,
+  "h": 756,
+  "marks": [
+   {
+    "x": 286,
+    "y": 127,
+    "w": 530,
+    "h": 70,
+    "label": "Release date",
+    "text": "The date the proceeds are released."
+   },
+   {
+    "x": 282,
+    "y": 213,
+    "w": 540,
+    "h": 86,
+    "label": "Cash or check",
+    "text": "A check needs its check number."
+   },
+   {
+    "x": 286,
+    "y": 299,
+    "w": 530,
+    "h": 317,
+    "label": "Deductions and net proceeds",
+    "text": "Insurance 0.56%, service fee 3%, stockshare 2%, notarial ₱200, printing ₱30. Interest is not deducted in advance."
+   },
+   {
+    "x": 286,
+    "y": 648,
+    "w": 530,
+    "h": 38,
+    "label": "Release",
+    "text": "Releases the loan and generates the amortization schedule."
+   }
+  ]
+ },
+ "16-loan-released": {
+  "w": 1440,
+  "h": 1739,
+  "marks": [
+   {
+    "x": 1310,
+    "y": 72,
+    "w": 114,
+    "h": 38,
+    "label": "Schedule",
+    "text": "Opens the printable schedule."
+   },
+   {
+    "x": 774,
+    "y": 208,
+    "w": 160,
+    "h": 47,
+    "label": "Outstanding principal",
+    "text": "Goes down as payments are posted."
+   },
+   {
+    "x": 1300,
+    "y": 337,
+    "w": 123,
+    "h": 507,
+    "label": "Installment status",
+    "text": "Paid, Partial, or Unpaid for each month."
+   },
+   {
+    "x": 266,
+    "y": 1069,
+    "w": 572,
+    "h": 283,
+    "label": "Currently due",
+    "text": "The installment due next, what is due now, and the full payoff amount."
+   },
+   {
+    "x": 853,
+    "y": 1069,
+    "w": 572,
+    "h": 600,
+    "label": "Details",
+    "text": "Who applied, approved, and released, with the deductions at release."
+   }
+  ]
+ },
+ "17-schedule-print": {
+  "w": 1440,
+  "h": 1257,
+  "marks": [
+   {
+    "x": 1047,
+    "y": 16,
+    "w": 83,
+    "h": 38,
+    "label": "Print",
+    "text": "Prints the member's copy."
+   },
+   {
+    "x": 336,
+    "y": 250,
+    "w": 769,
+    "h": 77,
+    "label": "Borrower and loan",
+    "text": "Borrower, co-maker, collateral, principal, term, and rate."
+   },
+   {
+    "x": 853,
+    "y": 343,
+    "w": 142,
+    "h": 507,
+    "label": "Semi-monthly column",
+    "text": "The amount for each payroll cut-off."
+   },
+   {
+    "x": 343,
+    "y": 925,
+    "w": 370,
+    "h": 202,
+    "label": "Deductions",
+    "text": "Deductions at release and the net proceeds."
+   },
+   {
+    "x": 728,
+    "y": 906,
+    "w": 370,
+    "h": 96,
+    "label": "After-term rule",
+    "text": "3% interest plus 4% penalty per month, computed per day, on the balance + unpaid interest once the term ends."
+   },
+   {
+    "x": 336,
+    "y": 1176,
+    "w": 769,
+    "h": 24,
+    "label": "Signatures",
+    "text": "The borrower and the authorized officer sign here."
+   }
+  ]
+ },
+ "37-loan-products": {
+  "w": 1440,
+  "h": 900,
+  "marks": [
+   {
+    "x": 1287,
+    "y": 72,
+    "w": 138,
+    "h": 38,
+    "label": "Add product",
+    "text": "Create a new loan product."
+   },
+   {
+    "x": 657,
+    "y": 147,
+    "w": 376,
+    "h": 486,
+    "label": "Product card",
+    "text": "Rate, loanable basis, limits, and term."
+   },
+   {
+    "x": 678,
+    "y": 589,
+    "w": 63,
+    "h": 31,
+    "label": "Edit",
+    "text": "Changes apply to future applications."
+   },
+   {
+    "x": 929,
+    "y": 589,
+    "w": 83,
+    "h": 31,
+    "label": "Deactivate",
+    "text": "Hides the product from new applications; existing loans keep their terms."
+   }
+  ]
+ },
+ "38-product-form": {
+  "w": 1440,
+  "h": 900,
+  "marks": [
+   {
+    "x": 286,
+    "y": 170,
+    "w": 530,
+    "h": 70,
+    "label": "Product name",
+    "text": "Shown in the application form and the products page."
+   },
+   {
+    "x": 282,
+    "y": 256,
+    "w": 540,
+    "h": 70,
+    "label": "Amount limits",
+    "text": "The minimum and maximum principal the product allows."
+   },
+   {
+    "x": 282,
+    "y": 342,
+    "w": 540,
+    "h": 94,
+    "label": "Term and rates",
+    "text": "Months, the monthly interest (3% diminishing), and the after-term penalty (4%)."
+   },
+   {
+    "x": 286,
+    "y": 452,
+    "w": 530,
+    "h": 70,
+    "label": "Loanable basis",
+    "text": "Appraised value (30%), monthly net pay, or a fixed amount."
+   },
+   {
+    "x": 286,
+    "y": 608,
+    "w": 141,
+    "h": 38,
+    "label": "Save product",
+    "text": "New settings affect only future applications."
+   }
+  ]
+ },
+ "26-settings": {
+  "w": 1440,
+  "h": 1654,
+  "marks": [
+   {
+    "x": 279,
+    "y": 178,
+    "w": 643,
+    "h": 311,
+    "label": "Deduction rates",
+    "text": "Insurance, service fee, stockshare, notarial, and printing fees taken at release."
+   },
+   {
+    "x": 279,
+    "y": 505,
+    "w": 643,
+    "h": 93,
+    "label": "Loanable amount",
+    "text": "Share of the collateral's appraised value that can be borrowed (30%)."
+   },
+   {
+    "x": 279,
+    "y": 615,
+    "w": 643,
+    "h": 235,
+    "label": "Account minimums",
+    "text": "Share capital, maintaining balance, time deposit, and CBU."
+   },
+   {
+    "x": 279,
+    "y": 866,
+    "w": 643,
+    "h": 195,
+    "label": "Fees and interest",
+    "text": "The fixed membership fee and the savings interest rate."
+   },
+   {
+    "x": 279,
+    "y": 1077,
+    "w": 643,
+    "h": 171,
+    "label": "Monitoring",
+    "text": "Days before due for reminders, and the aging brackets."
+   },
+   {
+    "x": 279,
+    "y": 1265,
+    "w": 643,
+    "h": 112,
+    "label": "OR series",
+    "text": "Set the last number issued to match the booklet; it can only move forward."
+   },
+   {
+    "x": 279,
+    "y": 1392,
+    "w": 643,
+    "h": 69,
+    "label": "Verb labels",
+    "text": "Language of the action words on buttons (for example Post, Void)."
+   },
+   {
+    "x": 286,
+    "y": 1546,
+    "w": 141,
+    "h": 38,
+    "label": "Save settings",
+    "text": "Only the Manager can change settings; other roles see them read-only."
+   },
+   {
+    "x": 950,
+    "y": 147,
+    "w": 474,
+    "h": 427,
+    "label": "Sample check",
+    "text": "Recomputes FFMPC's ₱26,000 sample with the current rates."
+   }
+  ]
+ },
+ "40-email-settings": {
+  "w": 1440,
+  "h": 617,
+  "marks": [
+   {
+    "x": 286,
+    "y": 128,
+    "w": 1117,
+    "h": 61,
+    "label": "How it works",
+    "text": "The scheduled task sends the pending reminders through this account."
+   },
+   {
+    "x": 282,
+    "y": 204,
+    "w": 1127,
+    "h": 109,
+    "label": "SMTP host and port",
+    "text": "smtp.gmail.com on 587 (STARTTLS) or 465 (SSL)."
+   },
+   {
+    "x": 282,
+    "y": 314,
+    "w": 1127,
+    "h": 109,
+    "label": "Username and app password",
+    "text": "A Gmail App Password (16 letters), never the sign-in password. Saved masked."
+   },
+   {
+    "x": 286,
+    "y": 423,
+    "w": 1117,
+    "h": 70,
+    "label": "From address",
+    "text": "The cooperative's email address shown to members."
+   },
+   {
+    "x": 286,
+    "y": 509,
+    "w": 183,
+    "h": 38,
+    "label": "Save email settings",
+    "text": "Manager only."
+   }
+  ]
+ },
+ "28-user-accounts": {
+  "w": 1440,
+  "h": 900,
+  "marks": [
+   {
+    "x": 1307,
+    "y": 72,
+    "w": 118,
+    "h": 38,
+    "label": "Add user",
+    "text": "Create a staff account and choose its role."
+   },
+   {
+    "x": 781,
+    "y": 213,
+    "w": 139,
+    "h": 325,
+    "label": "Role",
+    "text": "Decides what each person may do."
+   },
+   {
+    "x": 1224,
+    "y": 271,
+    "w": 59,
+    "h": 31,
+    "label": "Edit",
+    "text": "Change the name, role, or status, or reset the password."
+   },
+   {
+    "x": 1287,
+    "y": 271,
+    "w": 104,
+    "h": 31,
+    "label": "Deactivate",
+    "text": "Accounts are deactivated, never deleted."
+   }
+  ]
+ },
+ "user-form": {
+  "w": 1440,
+  "h": 900,
+  "marks": [
+   {
+    "x": 286,
+    "y": 170,
+    "w": 731,
+    "h": 179,
+    "label": "Name, username, email",
+    "text": "The username or the email is used to sign in."
+   },
+   {
+    "x": 282,
+    "y": 365,
+    "w": 368,
+    "h": 70,
+    "label": "Role",
+    "text": "Manager, Cashier, Loan Officer, Bookkeeper, or Board / Auditor."
+   },
+   {
+    "x": 286,
+    "y": 451,
+    "w": 726,
+    "h": 93,
+    "label": "Password",
+    "text": "The first password; the user changes it after signing in."
+   },
+   {
+    "x": 1048,
+    "y": 147,
+    "w": 376,
+    "h": 310,
+    "label": "What each role can do",
+    "text": "A reminder of the duties of each role."
+   },
+   {
+    "x": 286,
+    "y": 576,
+    "w": 154,
+    "h": 38,
+    "label": "Create account",
+    "text": "Saves the new staff account."
+   }
+  ]
+ },
+ "43-account-close": {
+  "w": 1440,
+  "h": 900,
+  "marks": [
+   {
+    "x": 1167,
+    "y": 187,
+    "w": 236,
+    "h": 26,
+    "label": "Zero balance",
+    "text": "An account can be closed only at ₱0.00."
+   },
+   {
+    "x": 1167,
+    "y": 335,
+    "w": 236,
+    "h": 31,
+    "label": "Close account",
+    "text": "Manager only. The passbook history is kept, and the account can be reopened later."
+   }
+  ]
+ },
+ "35-reconcile": {
+  "w": 1440,
+  "h": 1102,
+  "marks": [
+   {
+    "x": 266,
+    "y": 147,
+    "w": 1159,
+    "h": 50,
+    "label": "Result",
+    "text": "Green when every stored balance matches its ledger."
+   },
+   {
+    "x": 266,
+    "y": 213,
+    "w": 1159,
+    "h": 333,
+    "label": "Loans check",
+    "text": "For every released loan: the unpaid schedule total must equal the stored outstanding balance."
+   },
+   {
+    "x": 266,
+    "y": 562,
+    "w": 1159,
+    "h": 470,
+    "label": "Savings check",
+    "text": "For every account: the sum of its transactions (reversals applied) must equal the stored balance."
+   }
+  ]
+ },
+ "payment-find-member": {
+  "w": 1440,
+  "h": 900,
+  "marks": [
+   {
+    "x": 286,
+    "y": 254,
+    "w": 530,
+    "h": 48,
+    "label": "Find the member",
+    "text": "Type a name or member number."
+   },
+   {
+    "x": 286,
+    "y": 310,
+    "w": 530,
+    "h": 50,
+    "label": "Pick the member",
+    "text": "Click the member in the list."
+   }
+  ]
+ },
+ "18-payment-choose-loan": {
+  "w": 1440,
+  "h": 900,
+  "marks": [
+   {
+    "x": 266,
+    "y": 187,
+    "w": 572,
+    "h": 144,
+    "label": "Find the member",
+    "text": "Search again to change the member."
+   },
+   {
+    "x": 854,
+    "y": 232,
+    "w": 570,
+    "h": 67,
+    "label": "Choose the loan",
+    "text": "Click the loan being paid; the next due date and balance are shown."
+   }
+  ]
+ },
+ "19-payment-advance": {
+  "w": 1440,
+  "h": 900,
+  "marks": [
+   {
+    "x": 286,
+    "y": 286,
+    "w": 628,
+    "h": 48,
+    "label": "Amount received",
+    "text": "₱12,000 here, which is more than one installment."
+   },
+   {
+    "x": 286,
+    "y": 365,
+    "w": 550,
+    "h": 31,
+    "label": "Quick fill",
+    "text": "Fill in the amount due now, the semi-monthly amount, or the full payoff."
+   },
+   {
+    "x": 286,
+    "y": 416,
+    "w": 628,
+    "h": 70,
+    "label": "Mode of payment",
+    "text": "Cash, salary deduction, or another mode."
+   },
+   {
+    "x": 286,
+    "y": 526,
+    "w": 628,
+    "h": 191,
+    "label": "How it will be applied",
+    "text": "Penalty → interest → principal. The installments covered are listed."
+   },
+   {
+    "x": 286,
+    "y": 757,
+    "w": 304,
+    "h": 48,
+    "label": "Post payment and issue OR",
+    "text": "Saves the payment and opens the receipt."
+   },
+   {
+    "x": 950,
+    "y": 187,
+    "w": 474,
+    "h": 364,
+    "label": "Due now / full payoff",
+    "text": "What is due today, and the amount that closes the loan (no rebate)."
+   }
+  ]
+ },
+ "20-payment-receipt": {
+  "w": 1440,
+  "h": 900,
+  "marks": [
+   {
+    "x": 717,
+    "y": 271,
+    "w": 180,
+    "h": 38,
+    "label": "OR number",
+    "text": "One receipt for the whole payment."
+   },
+   {
+    "x": 543,
+    "y": 446,
+    "w": 354,
+    "h": 108,
+    "label": "Installments covered",
+    "text": "Every installment this payment settled."
+   },
+   {
+    "x": 543,
+    "y": 626,
+    "w": 354,
+    "h": 39,
+    "label": "Total paid",
+    "text": "Split into interest and principal just above."
+   },
+   {
+    "x": 543,
+    "y": 701,
+    "w": 354,
+    "h": 36,
+    "label": "Remaining balance",
+    "text": "Outstanding principal after this payment."
+   },
+   {
+    "x": 310,
+    "y": 16,
+    "w": 820,
+    "h": 38,
+    "label": "Print",
+    "text": "Thermal 80mm or full report layout."
+   }
+  ]
+ },
+ "21-payment-after-term": {
+  "w": 1440,
+  "h": 900,
+  "marks": [
+   {
+    "x": 971,
+    "y": 299,
+    "w": 432,
+    "h": 84,
+    "label": "Term ended",
+    "text": "The loan term has ended; charges now accrue per day."
+   },
+   {
+    "x": 971,
+    "y": 433,
+    "w": 432,
+    "h": 79,
+    "label": "After-term charges",
+    "text": "Unpaid balance + unpaid interest is charged 3% interest + 4% penalty per month, computed per day, collected first."
+   },
+   {
+    "x": 971,
+    "y": 590,
+    "w": 432,
+    "h": 39,
+    "label": "Due now",
+    "text": "The total including the after-term charges."
+   },
+   {
+    "x": 971,
+    "y": 252,
+    "w": 432,
+    "h": 31,
+    "label": "Payment received on",
+    "text": "Recompute when the payment was received on an earlier date."
+   }
+  ]
+ },
+ "payments-list": {
+  "w": 1440,
+  "h": 1090,
+  "marks": [
+   {
+    "x": 1278,
+    "y": 72,
+    "w": 147,
+    "h": 38,
+    "label": "Post payment",
+    "text": "Cashier only."
+   },
+   {
+    "x": 286,
+    "y": 168,
+    "w": 1117,
+    "h": 46,
+    "label": "Date range",
+    "text": "Filter the receipts by date."
+   },
+   {
+    "x": 286,
+    "y": 372,
+    "w": 82,
+    "h": 648,
+    "label": "OR number",
+    "text": "Click a number to open and reprint the receipt."
+   },
+   {
+    "x": 1313,
+    "y": 372,
+    "w": 90,
+    "h": 648,
+    "label": "Status",
+    "text": "Posted or Void."
+   },
+   {
+    "x": 286,
+    "y": 327,
+    "w": 185,
+    "h": 31,
+    "label": "Export or print",
+    "text": "Copy, CSV, Excel, or Print."
+   }
+  ]
+ },
+ "29-report-daily-collection": {
+  "w": 1440,
+  "h": 900,
+  "marks": [
+   {
+    "x": 286,
+    "y": 156,
+    "w": 1117,
+    "h": 40,
+    "label": "Report tabs",
+    "text": "Each role sees only its reports."
+   },
+   {
+    "x": 286,
+    "y": 234,
+    "w": 227,
+    "h": 31,
+    "label": "Date",
+    "text": "Pick the day to balance."
+   },
+   {
+    "x": 286,
+    "y": 298,
+    "w": 1117,
+    "h": 47,
+    "label": "Totals",
+    "text": "Cash in, cash out, net for the day, receipts issued, and the total per cashier."
+   },
+   {
+    "x": 286,
+    "y": 361,
+    "w": 185,
+    "h": 31,
+    "label": "Export or print",
+    "text": "Copy, CSV, Excel, or Print."
+   }
+  ]
+ },
+ "41-global-member-search": {
+  "w": 1440,
+  "h": 900,
+  "marks": [
+   {
+    "x": 1102,
+    "y": 12,
+    "w": 171,
+    "h": 32,
+    "label": "Find member",
+    "text": "On every page, in the top bar (Ctrl+K or /)."
+   },
+   {
+    "x": 337,
+    "y": 397,
+    "w": 766,
+    "h": 48,
+    "label": "Search box",
+    "text": "Type a name or member number."
+   },
+   {
+    "x": 337,
+    "y": 453,
+    "w": 766,
+    "h": 61,
+    "label": "Instant results",
+    "text": "Jump to the record; the actions shown follow your role."
+   }
+  ]
+ },
+ "account-menu": {
+  "w": 1440,
+  "h": 900,
+  "marks": [
+   {
+    "x": 1250,
+    "y": 59,
+    "w": 181,
+    "h": 27,
+    "label": "Your role",
+    "text": "The role you are signed in with."
+   },
+   {
+    "x": 1250,
+    "y": 103,
+    "w": 181,
+    "h": 32,
+    "label": "Change password",
+    "text": "Opens the password page."
+   },
+   {
+    "x": 1250,
+    "y": 152,
+    "w": 181,
+    "h": 32,
+    "label": "Log out",
+    "text": "Always log out before leaving the computer."
+   }
+  ]
+ },
+ "39-profile": {
+  "w": 1440,
+  "h": 900,
+  "marks": [
+   {
+    "x": 286,
+    "y": 214,
+    "w": 530,
+    "h": 70,
+    "label": "Current password",
+    "text": "Proves it is you before the password can change."
+   },
+   {
+    "x": 286,
+    "y": 300,
+    "w": 530,
+    "h": 179,
+    "label": "New password",
+    "text": "At least 8 characters with letters and numbers, typed twice."
+   },
+   {
+    "x": 286,
+    "y": 511,
+    "w": 186,
+    "h": 38,
+    "label": "Save new password",
+    "text": "Changes the password of your own account."
+   }
+  ]
+ },
+ "24-delinquency": {
+  "w": 1440,
+  "h": 936,
+  "marks": [
+   {
+    "x": 1264,
+    "y": 72,
+    "w": 161,
+    "h": 38,
+    "label": "Update list now",
+    "text": "Scans every schedule against the payments received (Loan Officer)."
+   },
+   {
+    "x": 258,
+    "y": 147,
+    "w": 1174,
+    "h": 114,
+    "label": "Summary",
+    "text": "Past-due loans, amount past due, portfolio at risk, and the snapshot date."
+   },
+   {
+    "x": 266,
+    "y": 261,
+    "w": 1159,
+    "h": 317,
+    "label": "Aging summary",
+    "text": "Loans and amounts per bracket: 1–30, 31–60, 61–90, 91–180, 181–365, over 365 days."
+   },
+   {
+    "x": 286,
+    "y": 769,
+    "w": 1117,
+    "h": 97,
+    "label": "Past-due account",
+    "text": "Member, contact number, co-maker, days past due, and bracket."
+   },
+   {
+    "x": 1307,
+    "y": 796,
+    "w": 84,
+    "h": 43,
+    "label": "Demand letter",
+    "text": "Prints a letter for the borrower, with a copy for the co-maker."
+   }
+  ]
+ },
+ "25-demand-letter": {
+  "w": 1440,
+  "h": 1121,
+  "marks": [
+   {
+    "x": 1005,
+    "y": 16,
+    "w": 125,
+    "h": 38,
+    "label": "Print letter",
+    "text": "Print it and have the borrower sign on receipt."
+   },
+   {
+    "x": 343,
+    "y": 511,
+    "w": 440,
+    "h": 198,
+    "label": "Unpaid installments",
+    "text": "Listed with their due dates, plus the after-term interest and penalty."
+   },
+   {
+    "x": 344,
+    "y": 669,
+    "w": 439,
+    "h": 39,
+    "label": "Total past due",
+    "text": "The amount demanded."
+   },
+   {
+    "x": 343,
+    "y": 1045,
+    "w": 754,
+    "h": 19,
+    "label": "Co-maker copy",
+    "text": "The co-maker gets a copy and is liable."
+   },
+   {
+    "x": 336,
+    "y": 997,
+    "w": 769,
+    "h": 24,
+    "label": "Signatures",
+    "text": "Signed for the cooperative; the borrower signs on receipt."
+   }
+  ]
+ },
+ "27-reminders": {
+  "w": 1440,
+  "h": 900,
+  "marks": [
+   {
+    "x": 266,
+    "y": 153,
+    "w": 188,
+    "h": 38,
+    "label": "Generate reminders",
+    "text": "Creates messages for dues within 3 days and for overdue loans."
+   },
+   {
+    "x": 286,
+    "y": 227,
+    "w": 1117,
+    "h": 32,
+    "label": "To send / Sent / Failed",
+    "text": "Filter the reminders by status."
+   },
+   {
+    "x": 671,
+    "y": 373,
+    "w": 447,
+    "h": 128,
+    "label": "Message",
+    "text": "The text that will be sent to the member."
+   },
+   {
+    "x": 1118,
+    "y": 373,
+    "w": 90,
+    "h": 128,
+    "label": "Status",
+    "text": "Pending reminders with an email address are sent by the scheduled task."
+   },
+   {
+    "x": 1208,
+    "y": 373,
+    "w": 196,
+    "h": 128,
+    "label": "Send by hand",
+    "text": "Open in the SMS or email app, then mark sent or failed, or remove."
+   }
+  ]
+ },
+ "44-report-loan-status": {
+  "w": 1440,
+  "h": 900,
+  "marks": [
+   {
+    "x": 286,
+    "y": 156,
+    "w": 134,
+    "h": 40,
+    "label": "Loan status tab",
+    "text": "One of the report tabs; each role sees only its reports."
+   },
+   {
+    "x": 266,
+    "y": 221,
+    "w": 1159,
+    "h": 158,
+    "label": "By product",
+    "text": "Loans and balances per product and status."
+   },
+   {
+    "x": 266,
+    "y": 395,
+    "w": 1159,
+    "h": 372,
+    "label": "Released loans",
+    "text": "Every running loan with its outstanding balance. Export or print."
+   }
+  ]
+ },
+ "45-report-aging": {
+  "w": 1440,
+  "h": 900,
+  "marks": [
+   {
+    "x": 421,
+    "y": 156,
+    "w": 203,
+    "h": 40,
+    "label": "Delinquency & aging tab",
+    "text": "The aging view of the whole portfolio."
+   },
+   {
+    "x": 286,
+    "y": 286,
+    "w": 1117,
+    "h": 47,
+    "label": "Brackets",
+    "text": "Loans and amount past due in each aging bracket."
+   },
+   {
+    "x": 286,
+    "y": 394,
+    "w": 1117,
+    "h": 75,
+    "label": "Past-due loans",
+    "text": "Every past-due loan with its days past due, live as of today."
+   }
+  ]
+ },
+ "dash-bookkeeper": {
+  "w": 1440,
+  "h": 1318,
+  "marks": [
+   {
+    "x": 8,
+    "y": 156,
+    "w": 234,
+    "h": 734,
+    "label": "Your menu",
+    "text": "Only the modules a Bookkeeper may use."
+   },
+   {
+    "x": 258,
+    "y": 147,
+    "w": 1174,
+    "h": 381,
+    "label": "Today at a glance",
+    "text": "Members, portfolio, collections, deposits, and past-due loans."
+   },
+   {
+    "x": 1048,
+    "y": 528,
+    "w": 376,
+    "h": 94,
+    "label": "Quick actions",
+    "text": "Open reports."
+   },
+   {
+    "x": 1048,
+    "y": 638,
+    "w": 376,
+    "h": 610,
+    "label": "Recent activity",
+    "text": "Latest entries from the audit log."
+   }
+  ]
+ },
+ "36-savings-interest": {
+  "w": 1440,
+  "h": 900,
+  "marks": [
+   {
+    "x": 286,
+    "y": 288,
+    "w": 530,
+    "h": 70,
+    "label": "Quarter label",
+    "text": "For example 2027-Q1. Accounts already posted for the label are skipped."
+   },
+   {
+    "x": 286,
+    "y": 374,
+    "w": 205,
+    "h": 38,
+    "label": "Post quarterly interest",
+    "text": "Credits 1% of the balance to every active regular savings account in one run."
+   },
+   {
+    "x": 852,
+    "y": 147,
+    "w": 572,
+    "h": 114,
+    "label": "Time deposits",
+    "text": "1% per term, posted per account with its own term label."
+   },
+   {
+    "x": 266,
+    "y": 449,
+    "w": 1159,
+    "h": 273,
+    "label": "Accounts and interest",
+    "text": "Each balance with the interest it will earn and the date of the last posting."
+   }
+  ]
+ },
+ "42-passbook-reversal": {
+  "w": 1440,
+  "h": 900,
+  "marks": [
+   {
+    "x": 266,
+    "y": 261,
+    "w": 864,
+    "h": 59,
+    "label": "Reversed line",
+    "text": "Greyed out with a Reversed badge; the original stays on record."
+   },
+   {
+    "x": 266,
+    "y": 378,
+    "w": 864,
+    "h": 77,
+    "label": "Reversing entry",
+    "text": "The correcting line, with the reason."
+   },
+   {
+    "x": 1078,
+    "y": 217,
+    "w": 28,
+    "h": 28,
+    "label": "Reverse",
+    "text": "On every receipt line that can still be corrected (Bookkeeper)."
+   }
+  ]
+ },
+ "reversal-dialog": {
+  "w": 1440,
+  "h": 900,
+  "marks": [
+   {
+    "x": 487,
+    "y": 368,
+    "w": 466,
+    "h": 48,
+    "label": "What will happen",
+    "text": "A reversing entry is added; the original stays on record."
+   },
+   {
+    "x": 487,
+    "y": 462,
+    "w": 466,
+    "h": 62,
+    "label": "Reason (required)",
+    "text": "Why the entry is reversed (3 to 200 characters)."
+   },
+   {
+    "x": 832,
+    "y": 557,
+    "w": 121,
+    "h": 38,
+    "label": "Reverse entry",
+    "text": "Confirms the reversal; the cash returns to the box that day."
+   }
+  ]
+ },
+ "void-button": {
+  "w": 1440,
+  "h": 253,
+  "marks": [
+   {
+    "x": 266,
+    "y": 140,
+    "w": 1240,
+    "h": 43,
+    "label": "Latest receipt",
+    "text": "Only the newest posted receipt of a loan can be voided."
+   },
+   {
+    "x": 1417,
+    "y": 140,
+    "w": 90,
+    "h": 43,
+    "label": "Void",
+    "text": "Bookkeeper only; a reason is asked."
+   }
+  ]
+ },
+ "22-void-receipt": {
+  "w": 1440,
+  "h": 900,
+  "marks": [
+   {
+    "x": 487,
+    "y": 368,
+    "w": 466,
+    "h": 48,
+    "label": "What will happen",
+    "text": "The installments and balance are restored; the receipt stays on record marked VOID."
+   },
+   {
+    "x": 487,
+    "y": 462,
+    "w": 466,
+    "h": 62,
+    "label": "Reason (required)",
+    "text": "Why the receipt is voided."
+   },
+   {
+    "x": 843,
+    "y": 557,
+    "w": 110,
+    "h": 38,
+    "label": "Void receipt",
+    "text": "Confirms the void."
+   }
+  ]
+ },
+ "23-voided-payments": {
+  "w": 1440,
+  "h": 710,
+  "marks": [
+   {
+    "x": 1077,
+    "y": 140,
+    "w": 340,
+    "h": 59,
+    "label": "Marked VOID",
+    "text": "The voided receipt stays on record with its reason."
+   },
+   {
+    "x": 266,
+    "y": 357,
+    "w": 572,
+    "h": 283,
+    "label": "Due again",
+    "text": "The balance and the amount due are back to what they were before the voided payment."
+   }
+  ]
+ },
+ "account-reopen": {
+  "w": 1440,
+  "h": 900,
+  "marks": [
+   {
+    "x": 1167,
+    "y": 224,
+    "w": 51,
+    "h": 20,
+    "label": "Closed",
+    "text": "A closed account accepts no transactions."
+   },
+   {
+    "x": 1167,
+    "y": 335,
+    "w": 236,
+    "h": 31,
+    "label": "Reopen account",
+    "text": "Manager or Bookkeeper, for example when a resigned member returns."
+   }
+  ]
+ },
+ "34-eod-close": {
+  "w": 1440,
+  "h": 900,
+  "marks": [
+   {
+    "x": 286,
+    "y": 189,
+    "w": 293,
+    "h": 31,
+    "label": "Business date",
+    "text": "Pick the day to balance, then click Show."
+   },
+   {
+    "x": 286,
+    "y": 253,
+    "w": 1117,
+    "h": 47,
+    "label": "Receipts by type",
+    "text": "Every posted receipt of the day grouped by type, with counts and totals."
+   },
+   {
+    "x": 286,
+    "y": 397,
+    "w": 1117,
+    "h": 46,
+    "label": "Savings reversal",
+    "text": "A reversal books the cash back on the day it returned."
+   },
+   {
+    "x": 286,
+    "y": 582,
+    "w": 1117,
+    "h": 39,
+    "label": "Grand total (cash box)",
+    "text": "Cash in minus cash out: the number that must match the counted cash."
+   }
+  ]
+ },
+ "46-report-savings": {
+  "w": 1440,
+  "h": 900,
+  "marks": [
+   {
+    "x": 446,
+    "y": 156,
+    "w": 107,
+    "h": 40,
+    "label": "Savings tab",
+    "text": "Movements and balances for savings and share capital."
+   },
+   {
+    "x": 286,
+    "y": 234,
+    "w": 507,
+    "h": 31,
+    "label": "Date range",
+    "text": "Filter the movement period."
+   },
+   {
+    "x": 266,
+    "y": 368,
+    "w": 1159,
+    "h": 333,
+    "label": "Balances per member",
+    "text": "Per account type with totals; export or print."
+   }
+  ]
+ },
+ "30-report-salary-deduction": {
+  "w": 1440,
+  "h": 900,
+  "marks": [
+   {
+    "x": 695,
+    "y": 156,
+    "w": 198,
+    "h": 40,
+    "label": "Salary deduction list",
+    "text": "Prepared by the Bookkeeper for payroll."
+   },
+   {
+    "x": 286,
+    "y": 234,
+    "w": 331,
+    "h": 31,
+    "label": "Payroll month",
+    "text": "Choose the month."
+   },
+   {
+    "x": 1188,
+    "y": 378,
+    "w": 108,
+    "h": 75,
+    "label": "15th",
+    "text": "Half of the monthly amount, deducted on the first cut-off."
+   },
+   {
+    "x": 1296,
+    "y": 378,
+    "w": 108,
+    "h": 75,
+    "label": "30th",
+    "text": "The other half, deducted on the second cut-off."
+   },
+   {
+    "x": 286,
+    "y": 453,
+    "w": 1117,
+    "h": 39,
+    "label": "Total to deduct",
+    "text": "The sum for the whole list."
+   }
+  ]
+ },
+ "31-audit-log": {
+  "w": 1440,
+  "h": 958,
+  "marks": [
+   {
+    "x": 282,
+    "y": 168,
+    "w": 1127,
+    "h": 86,
+    "label": "Filters",
+    "text": "By date range, user, and record type."
+   },
+   {
+    "x": 485,
+    "y": 357,
+    "w": 115,
+    "h": 531,
+    "label": "Who",
+    "text": "The user and role that made the change."
+   },
+   {
+    "x": 919,
+    "y": 357,
+    "w": 416,
+    "h": 531,
+    "label": "What changed",
+    "text": "Details of the action, such as the voided OR and its reason."
+   },
+   {
+    "x": 286,
+    "y": 312,
+    "w": 185,
+    "h": 31,
+    "label": "Export or print",
+    "text": "Copy, CSV, Excel, or Print."
+   }
+  ]
+ },
+ "dash-auditor": {
+  "w": 1440,
+  "h": 1318,
+  "marks": [
+   {
+    "x": 8,
+    "y": 156,
+    "w": 234,
+    "h": 691,
+    "label": "Your menu",
+    "text": "Records, reports, reconciliation, and the audit log, all read-only."
+   },
+   {
+    "x": 258,
+    "y": 147,
+    "w": 1174,
+    "h": 381,
+    "label": "Today at a glance",
+    "text": "Members, portfolio, collections, deposits, past-due loans, share capital, and savings."
+   },
+   {
+    "x": 1048,
+    "y": 528,
+    "w": 376,
+    "h": 94,
+    "label": "Quick actions",
+    "text": "Open reports."
+   },
+   {
+    "x": 1048,
+    "y": 638,
+    "w": 376,
+    "h": 610,
+    "label": "Recent activity",
+    "text": "Latest entries from the audit log."
+   }
+  ]
+ },
+ "auditor-member-record": {
+  "w": 1440,
+  "h": 900,
+  "marks": [
+   {
+    "x": 250,
+    "y": 57,
+    "w": 1190,
+    "h": 90,
+    "label": "No action buttons",
+    "text": "The Board / Auditor can open every record, but there is nothing to edit, post, or approve."
+   },
+   {
+    "x": 266,
+    "y": 255,
+    "w": 1157,
+    "h": 44,
+    "label": "Record tabs",
+    "text": "Eligibility, profile, accounts, loans, and payment history."
+   }
+  ]
+ },
+ "33-auditor-share-capital": {
+  "w": 1440,
+  "h": 900,
+  "marks": [
+   {
+    "x": 890,
+    "y": 156,
+    "w": 142,
+    "h": 40,
+    "label": "Share capital",
+    "text": "Report tab, read-only for the Board / Auditor."
+   },
+   {
+    "x": 286,
+    "y": 286,
+    "w": 1117,
+    "h": 47,
+    "label": "Summary",
+    "text": "Total paid-up capital, members, average, and members below the minimum."
+   },
+   {
+    "x": 286,
+    "y": 349,
+    "w": 185,
+    "h": 31,
+    "label": "Export or print",
+    "text": "Copy, CSV, Excel, or Print."
+   }
+  ]
+ },
+ "32-access-denied": {
+  "w": 1440,
+  "h": 900,
+  "marks": [
+   {
+    "x": 282,
+    "y": 205,
+    "w": 1125,
+    "h": 24,
+    "label": "Blocked",
+    "text": "The Board / Auditor tried to open Add user by typing its address."
+   },
+   {
+    "x": 766,
+    "y": 277,
+    "w": 158,
+    "h": 80,
+    "label": "Back to dashboard",
+    "text": "Returns to the pages the role may use."
+   }
+  ]
+ }
+}
