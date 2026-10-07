@@ -185,6 +185,10 @@ body.guide { background: var(--ml-bg); font-size: 1rem; }
 .ann-halo { fill: none; stroke: #fff; stroke-width: 9; opacity: .9; }
 .ann-ring { fill: rgba(249, 115, 22, .08); stroke: var(--ann); stroke-width: 4; }
 .ann-area { fill: rgba(249, 115, 22, .04); stroke-dasharray: 14 9; }
+.ann-line { stroke: var(--ann); stroke-width: 4; stroke-linecap: round; }
+.ann-line-halo { stroke: #fff; stroke-width: 9; stroke-linecap: round; opacity: .9; }
+.ann-head { fill: var(--ann); }
+.ann-head-halo { fill: #fff; stroke: #fff; stroke-width: 5; stroke-linejoin: round; opacity: .9; }
 .ann-chip-bg { fill: var(--ann-ink); stroke: #fff; stroke-width: 2.5; }
 .ann-num-bg { fill: var(--ann); }
 .ann-num, .ann-text { fill: #fff; font-weight: 700; dominant-baseline: middle; }

@@ -48,6 +48,24 @@ COLUMN_JS = """(t, [head, rows]) => {
 }"""
 
 
+INK_JS = """() => {
+  const out = [];
+  const shown = el => el.checkVisibility({checkOpacity: true, checkVisibilityCSS: true});
+  const add = r => { if (r.width > 2 && r.height > 2 && r.right > 0 && r.left < innerWidth) out.push([r.left, r.top + scrollY, r.width, r.height].map(Math.round)); };
+  const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+  const range = document.createRange();
+  for (let n; (n = walker.nextNode());) {
+    const el = n.parentElement;
+    if (!n.nodeValue.trim() || !el || el.closest('script, style, option') || !shown(el)) continue;
+    range.selectNodeContents(n);
+    for (const r of range.getClientRects()) add(r);
+  }
+  for (const el of document.querySelectorAll('input:not([type=hidden]), select, textarea, button, .btn, img, canvas, i, .badge, .kpi-icon, .avatar, .toast'))
+    if (shown(el)) add(el.getBoundingClientRect());
+  return out;
+}"""
+
+
 class Walk:
     """One browser, one signed-in role at a time. snap() = screenshot + measured marks."""
 
@@ -118,9 +136,10 @@ class Walk:
                     break
         if not boxes:
             return None
-        x0 = min(b['x'] for b in boxes)
+        # clip to the window: a wide table can scroll sideways inside its card
+        x0 = max(0, min(b['x'] for b in boxes))
         y0 = min(b['y'] for b in boxes)
-        x1 = max(b['x'] + b['width'] for b in boxes)
+        x1 = min(W, max(b['x'] + b['width'] for b in boxes))
         y1 = max(b['y'] + b['height'] for b in boxes)
         sy = 0 if isinstance(sel, tuple) else self.pg.evaluate('window.scrollY')
         return [round(x0), round(y0 + sy), round(x1 - x0), round(y1 - y0)]
@@ -160,15 +179,19 @@ class Walk:
             y0 = max(0, min([self.box(top)[1]] + [m['y'] for m in found]) - 60)
             for m in found:
                 m['y'] -= y0
+        # everything drawn on the page (text lines, fields, buttons, icons): labels must not cover it
+        ink = [[x, y - y0, bw, bh] for x, y, bw, bh in pg.evaluate(INK_JS) if y + bh > y0 and y < h]
         pg.screenshot(path=str(SHOTS / f'{slug}.png'), clip={'x': 0, 'y': y0, 'width': W, 'height': h - y0})
         if h > 900:
             pg.set_viewport_size({'width': W, 'height': 900})
         h -= y0
-        self.out[slug] = {'w': W, 'h': h, 'marks': found}
+        self.out[slug] = {'w': W, 'h': h, 'marks': found, 'ink': ink}
         print(f'  {slug}: {len(found)}/{len(marks)} marks, {W}x{h}')
 
     def save(self):
-        MARKS.write_text(json.dumps(self.out, ensure_ascii=False, indent=1), encoding='utf-8')
+        # one screenshot per line keeps the file diffable without thousands of lines of coordinates
+        body = ',\n'.join(json.dumps(k) + ': ' + json.dumps(v, ensure_ascii=False, separators=(',', ':')) for k, v in self.out.items())
+        MARKS.write_text('{\n' + body + '\n}\n', encoding='utf-8')
 
 
 def card(title):
@@ -666,6 +689,8 @@ def scenario(w):
     w.go('loan_view&id=3')
     payments = card('Payments')
     void_row = payments + ' tbody tr:has(form)'
+    # the payments table is wider than its card at this window size: bring the Void column into view
+    pg.eval_on_selector(payments + ' .table-responsive', 'e => e.scrollLeft = e.scrollWidth')
     w.snap('void-button', [
         (void_row, 'Latest receipt', 'Only the newest posted receipt of a loan can be voided.'),
         (void_row + ' td:last-child', 'Void', 'Bookkeeper only; a reason is asked.'),
@@ -789,48 +814,149 @@ def overlap(a, b):
     return a[0] < b[0] + b[2] and b[0] < a[0] + a[2] and a[1] < b[1] + b[3] and b[1] < a[1] + a[3]
 
 
-def place_chips(marks, boxes, width, height):
-    """Attach each chip to its own box: above-left by default, never on another highlight or chip."""
+CELL = 6         # the page is checked for free space on a grid of this many pixels
+REACH = 560      # how far a label may move away from its target to find free space
+GAP = 30         # every label stands this far off its box, so there is always room for its arrow
+
+
+def ink_table(ink, width, height):
+    """Summed-area table over the cells that have something drawn on them: 'is this rectangle empty?' in O(1)."""
+    cols, rows = width // CELL + 1, height // CELL + 1
+    t = [[0] * (cols + 1) for _ in range(rows + 1)]
+    for x, y, w, h in ink:
+        for r in range(max(0, y // CELL), min(rows, (y + h) // CELL + 1)):
+            row = t[r + 1]
+            for c in range(max(0, x // CELL), min(cols, (x + w) // CELL + 1)):
+                row[c + 1] = 1
+    for r in range(1, rows + 1):
+        acc = 0
+        for c in range(1, cols + 1):
+            acc += t[r][c]
+            t[r][c] = acc + t[r - 1][c]
+    return t
+
+
+def inked(t, r, margin=3):
+    """How many drawn cells the rectangle (plus a small margin) touches."""
+    x0, y0 = max(0, int(r[0] - margin) // CELL), max(0, int(r[1] - margin) // CELL)
+    x1 = min(len(t[0]) - 2, int(r[0] + r[2] + margin) // CELL)
+    y1 = min(len(t) - 2, int(r[1] + r[3] + margin) // CELL)
+    return t[y1 + 1][x1 + 1] - t[y0][x1 + 1] - t[y1 + 1][x0] + t[y0][x0]
+
+
+def gap_between(a, b):
+    """Distance between two rectangles (0 when they touch or overlap)."""
+    dx = max(b[0] - (a[0] + a[2]), a[0] - (b[0] + b[2]), 0)
+    dy = max(b[1] - (a[1] + a[3]), a[1] - (b[1] + b[3]), 0)
+    return (dx * dx + dy * dy) ** 0.5
+
+
+def place_chips(marks, boxes, width, height, ink):
+    """
+    Put each label on EMPTY space: never on page content, on another target, or on another label.
+    Right beside its box when there is room; otherwise the nearest free spot, joined by an arrow.
+    """
+    table = ink_table(ink, width, height)
     chips = []
     for i, (x, y, w, h) in enumerate(boxes):
         cw = chip_width(marks[i]['label'])
-        gap = 5
-        if shape_for(marks[i]['w'], marks[i]['h']) == 'area':
-            # big regions: a tab straddling the top border, like a fieldset legend
-            cands = [(x + 14, y - CHIP_H / 2), (x + w - cw - 14, y - CHIP_H / 2), (x + 14, y + h - CHIP_H / 2)]
-        else:
-            cands = [(x, y - CHIP_H - gap), (x, y + h + gap), (x + w - cw, y - CHIP_H - gap), (x + w - cw, y + h + gap),
-                     (x + w + gap, y + h / 2 - CHIP_H / 2), (x - cw - gap, y + h / 2 - CHIP_H / 2)]
-        others = [b for j, b in enumerate(boxes) if j != i]
+        gap = GAP
+        own = (x, y, w, h)
+        is_area = shape_for(marks[i]['w'], marks[i]['h']) == 'area'
+        # other small targets (fields, buttons, badges) are off limits; a box that contains this
+        # one is its own row or card, and the blank part of a big dashed region is fair game
+        holds = lambda b: b[0] <= x and b[1] <= y and b[0] + b[2] >= x + w and b[1] + b[3] >= y + h
+        blocked = [b for j, b in enumerate(boxes) if j != i and shape_for(marks[j]['w'], marks[j]['h']) != 'area' and not holds(b)]
+        others = [b for j, b in enumerate(boxes) if j != i and not holds(b)]  # an arrow should not run across any of these
+        if not is_area:
+            blocked.append(own)
 
-        def cost(c):
-            r = (c[0], c[1], cw, CHIP_H)
-            out = r[0] < 4 or r[1] < 4 or r[0] + cw > width - 4 or r[1] + CHIP_H > height - 4
-            return out * 100 + sum(overlap(r, ch) for ch in chips) * 10 + sum(overlap(r, o) for o in others)
+        def free(cx, cy):
+            r = (cx, cy, cw, CHIP_H)
+            if cx < 4 or cy < 4 or cx + cw > width - 4 or cy + CHIP_H > height - 4:
+                return False
+            if any(overlap((cx - 5, cy - 5, cw + 10, CHIP_H + 10), c) for c in chips) or any(overlap(r, b) for b in blocked):
+                return False
+            return not inked(table, r)
 
-        best = min(cands, key=cost)  # min() keeps the first of equal candidates: the preferred position wins ties
-        cx = min(max(best[0], 4), width - cw - 4)
-        cy = min(max(best[1], 4), height - CHIP_H - 4)
-        chips.append((round(cx), round(cy), cw, CHIP_H))
+        # 1. beside the box, in order of preference
+        near = [(x, y - CHIP_H - gap), (x, y + h + gap), (x + w - cw, y - CHIP_H - gap), (x + w - cw, y + h + gap),
+                (x + w + gap, y + h / 2 - CHIP_H / 2), (x - cw - gap, y + h / 2 - CHIP_H / 2)]
+        spot = next((c for c in near if free(*c)), None)
+        # 2. the nearest empty spot anywhere within reach (an arrow will join it to the box)
+        #    (a spot whose arrow would run across another target or label counts as much further away)
+        if spot is None:
+            best = REACH
+            for cy in range(4, height - CHIP_H - 4, CELL):
+                if cy + CHIP_H < y - REACH or cy > y + h + REACH:
+                    continue
+                for cx in range(4, width - cw - 4, CELL):
+                    r = (cx, cy, cw, CHIP_H)
+                    d = gap_between(r, own)
+                    if GAP - 4 <= d < best and free(cx, cy):
+                        d += 220 * crossings(link(r, own), others + chips)
+                        if d < best:
+                            best, spot = d, (cx, cy)
+        # 3. a page with no empty space at all: beside the box, on the least content
+        if spot is None:
+            spot = min(near, key=lambda c: inked(table, (c[0], c[1], cw, CHIP_H)) + 1000 * (c[0] < 4 or c[1] < 4 or c[0] + cw > width - 4 or c[1] + CHIP_H > height - 4))
+            spot = (min(max(spot[0], 4), width - cw - 4), min(max(spot[1], 4), height - CHIP_H - 4))
+        chips.append((round(spot[0]), round(spot[1]), cw, CHIP_H))
     return chips
+
+
+def link(chip, box):
+    """The straight line from a label to its box: (leaves the chip at, lands on the box at)."""
+    clamp = lambda v, lo, hi: max(lo, min(v, hi))
+    bx, by = box[0] + box[2] / 2, box[1] + box[3] / 2
+    px, py = clamp(bx, chip[0], chip[0] + chip[2]), clamp(by, chip[1], chip[1] + chip[3])
+    qx, qy = clamp(px, box[0], box[0] + box[2]), clamp(py, box[1], box[1] + box[3])
+    return px, py, qx, qy
+
+
+def crossings(line, rects):
+    """How many of the rectangles the line passes through (sampled every few pixels)."""
+    px, py, qx, qy = line
+    n = max(1, int(((qx - px) ** 2 + (qy - py) ** 2) ** 0.5 // 6))
+    pts = [(px + (qx - px) * k / n, py + (qy - py) * k / n) for k in range(1, n)]
+    return sum(any(r[0] < a < r[0] + r[2] and r[1] < b < r[1] + r[3] for a, b in pts) for r in rects)
+
+
+def arrow(chip, box):
+    """A line with an arrowhead from the label to the edge of its box; nothing when the label sits right beside it."""
+    px, py, qx, qy = link(chip, box)
+    length = ((qx - px) ** 2 + (qy - py) ** 2) ** 0.5
+    if length < 9:
+        return ''
+    ux, uy = (qx - px) / length, (qy - py) / length
+    head = min(13, length - 2)
+    tip = (qx - ux * 2, qy - uy * 2)
+    base = (tip[0] - ux * head, tip[1] - uy * head)
+    left = (base[0] - uy * 7, base[1] + ux * 7)
+    right = (base[0] + uy * 7, base[1] - ux * 7)
+    line = f'x1="{px:.0f}" y1="{py:.0f}" x2="{base[0]:.0f}" y2="{base[1]:.0f}"'
+    head = f'{tip[0]:.0f},{tip[1]:.0f} {left[0]:.0f},{left[1]:.0f} {right[0]:.0f},{right[1]:.0f}'
+    return (f'<line class="ann-line-halo" stroke="#fff" {line}/><polygon class="ann-head-halo" fill="#fff" stroke="#fff" points="{head}"/>'
+            f'<line class="ann-line" stroke="#f97316" {line}/><polygon class="ann-head" fill="#f97316" points="{head}"/>')
 
 
 def overlay(entry):
     width, height = entry['w'], entry['h']
     marks = entry['marks']
     boxes = [(m['x'] - PAD, m['y'] - PAD, m['w'] + 2 * PAD, m['h'] + 2 * PAD) for m in marks]
-    chips = place_chips(marks, boxes, width, height)
+    chips = place_chips(marks, boxes, width, height, entry.get('ink', []))
     shapes, tags = '', ''
     for i, ((x, y, w, h), m) in enumerate(zip(boxes, marks)):
         kind = shape_for(m['w'], m['h'])
         if kind == 'circle':
             geo = f'cx="{x + w / 2:.0f}" cy="{y + h / 2:.0f}" r="{max(w, h) / 2:.0f}"'
-            shapes += f'<circle class="ann-halo" {geo}/><circle class="ann-ring" {geo}/>'
+            shapes += f'<circle class="ann-halo" fill="none" {geo}/><circle class="ann-ring" fill="none" {geo}/>'
         else:
             geo = f'x="{x}" y="{y}" width="{w}" height="{h}" rx="{h / 2 if kind == "pill" else 8:.0f}"'
-            shapes += f'<rect class="ann-halo" {geo}/><rect class="ann-ring{" ann-area" if kind == "area" else ""}" {geo}/>'
+            shapes += f'<rect class="ann-halo" fill="none" {geo}/><rect class="ann-ring{" ann-area" if kind == "area" else ""}" fill="none" {geo}/>'
         cx, cy, cw, ch = chips[i]
         mid = ch // 2
+        shapes += arrow(chips[i], (x, y, w, h))
         tags += (f'<g class="ann-chip" transform="translate({cx} {cy})">'
                  f'<rect class="ann-chip-bg" width="{cw}" height="{ch}" rx="{mid}"/>'
                  f'<circle class="ann-num-bg" cx="{mid}" cy="{mid}" r="{mid - 3}"/>'
@@ -850,6 +976,7 @@ def steps(entry):
 def inject():
     marks = json.loads(MARKS.read_text(encoding='utf-8'))
     doc = re.sub(r'<!--ann-->.*?<!--/ann-->', '', DOC.read_text(encoding='utf-8'), flags=re.S)
+    doc = re.sub(r'((?:guide\.css|screenshots/[\w-]+\.png))\?v=\d+', r'\1', doc)  # versions are re-added below
     used, missing = set(), set()
 
     def figure(m):
@@ -868,6 +995,12 @@ def inject():
                  figure, doc, flags=re.S)
     shown = len(set(re.findall(r'href="screenshots/([^"]+)\.png"', doc)))
     doc = re.sub(r'(<div><strong>)\d+(</strong><span>Screenshots</span></div>)', rf'\g<1>{shown}\g<2>', doc)
+    # .htaccess lets browsers keep CSS and PNG for a month. A stale guide.css paints the callouts
+    # solid black, and a stale screenshot no longer matches its boxes, so every URL carries the
+    # file's own modification time: it changes exactly when the file does.
+    css = DOC.with_name('guide.css')
+    doc = doc.replace('href="guide.css"', f'href="guide.css?v={int(css.stat().st_mtime)}"')
+    doc = re.sub(r'screenshots/([\w-]+)\.png', lambda m: f'{m.group(0)}?v={int((SHOTS / (m.group(1) + ".png")).stat().st_mtime)}', doc)
     DOC.write_text(doc, encoding='utf-8', newline='\n')
     print(f'Annotated {len(used)} screenshots ({shown} in the page).')
     if missing:
